@@ -1,23 +1,28 @@
 # =========================================================
+
 # DEPENDENCIES
+
 # =========================================================
 
 node_modules/
 **/node_modules/
 
-
 # =========================================================
-# PRODUCTION BUILDS
+
+# PRODUCTION / BUILD OUTPUT
+
 # =========================================================
 
 dist/
 dist-ssr/
 build/
 coverage/
-
+.vite/
 
 # =========================================================
+
 # ENVIRONMENT VARIABLES / SECRETS
+
 # =========================================================
 
 .env
@@ -25,15 +30,17 @@ coverage/
 **/.env
 **/.env.*
 
-# Allow example environment files
+# Allow safe example environment files
+
 !.env.example
 !.env.example.*
 !**/.env.example
 !**/.env.example.*
 
-
 # =========================================================
+
 # LOGS
+
 # =========================================================
 
 logs/
@@ -45,21 +52,27 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-
 # =========================================================
+
 # LOCAL / TEMPORARY FILES
+
 # =========================================================
 
 *.local
 *.tmp
 *.temp
+*.cache
 
 .DS_Store
 Thumbs.db
+Desktop.ini
 
+$RECYCLE.BIN/
 
 # =========================================================
-# EDITORS
+
+# EDITORS / IDEs
+
 # =========================================================
 
 .vscode/*
@@ -67,6 +80,7 @@ Thumbs.db
 !.vscode/settings.json
 
 .idea/
+
 *.suo
 *.user
 *.userosscache
@@ -76,36 +90,78 @@ Thumbs.db
 *.sln
 *.sw?
 
-
-# =========================================================
-# OS FILES
 # =========================================================
 
-Desktop.ini
-$RECYCLE.BIN/
+# BACKEND GENERATED FILES
 
-
-# =========================================================
-# VITE
-# =========================================================
-
-.vite/
-
-
-# =========================================================
-# OPTIONAL BACKEND GENERATED FILES
 # =========================================================
 
 uploads/
 temp/
 tmp/
 
+# Local database files
+
+*.sqlite
+*.sqlite3
+*.db
 
 # =========================================================
+
 # TEST / DEBUG OUTPUT
+
 # =========================================================
 
 .nyc_output/
 *.pid
 *.seed
 *.pid.lock
+test-results/
+playwright-report/
+allure-results/
+
+# =========================================================
+
+# SECURITY / CREDENTIAL FILES
+
+# =========================================================
+
+# Private keys / certificates
+
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Service account credentials
+
+*-service-account.json
+service-account.json
+credentials.json
+
+# Firebase / Google credentials
+
+firebase-key.json
+google-credentials.json
+
+# =========================================================
+
+# DEPLOYMENT / PLATFORM FILES
+
+# =========================================================
+
+.vercel/
+.netlify/
+
+# =========================================================
+
+# BACKUPS
+
+# =========================================================
+
+*.bak
+*.backup
+*.old
+~
+EOF

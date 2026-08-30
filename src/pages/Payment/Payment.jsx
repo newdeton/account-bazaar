@@ -1,7 +1,17 @@
-import { Link, useNavigate } from "react-router-dom";
-import { useCart } from "../../context/CartContext";
-import { useEffect, useMemo, useState } from "react";
 import {
+  Link,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
+
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import {
+  FiAlertCircle,
   FiCheckCircle,
   FiCreditCard,
   FiLock,
@@ -10,19 +20,32 @@ import {
   FiUser,
 } from "react-icons/fi";
 
+import { useCart } from "../../context/CartContext";
+
 import "./Payment.css";
 
 /* =========================================================
-   STORAGE KEYS
+   API CONFIGURATION
 ========================================================= */
 
-const CUSTOMER_KEY = "accountBazaarCustomer";
-const PURCHASES_KEY = "purchases";
-const TRAINING_BOOKINGS_KEY = "trainingBookings";
-const PENDING_TRAINING_KEY = "pendingTrainingBooking";
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000";
 
 /* =========================================================
-   CUSTOMER ID GENERATOR
+   STORAGE
+========================================================= */
+
+const CUSTOMER_KEY =
+  "accountBazaarCustomer";
+
+const PENDING_TRAINING_KEY =
+  "pendingTrainingBooking";
+
+/* =========================================================
+   CUSTOMER ID
+   Guest customers receive a persistent reference.
+   THIS IS NOT A LOGIN OR ACCOUNT.
 ========================================================= */
 
 const generateCustomerId = () => {
@@ -44,36 +67,45 @@ const generateCustomerId = () => {
 };
 
 /* =========================================================
-   GET OR CREATE CUSTOMER IDENTITY
+   GET / CREATE GUEST CUSTOMER
 ========================================================= */
 
 const getCustomerIdentity = () => {
   try {
-    const savedCustomer = localStorage.getItem(
-      CUSTOMER_KEY
-    );
+    const savedCustomer =
+      localStorage.getItem(
+        CUSTOMER_KEY
+      );
 
     if (savedCustomer) {
-      const customer = JSON.parse(savedCustomer);
+      const parsed =
+        JSON.parse(savedCustomer);
 
       if (
-        customer &&
-        typeof customer === "object" &&
-        customer.customerId
+        parsed &&
+        typeof parsed === "object" &&
+        parsed.customerId
       ) {
-        return customer;
+        return parsed;
       }
     }
   } catch (error) {
     console.error(
-      "Failed to load customer identity:",
+      "Failed to load guest customer:",
       error
     );
   }
 
   const customer = {
-    customerId: generateCustomerId(),
-    createdAt: new Date().toISOString(),
+    customerId:
+      generateCustomerId(),
+
+    createdAt:
+      new Date().toISOString(),
+
+    name: "",
+    email: "",
+    phone: "",
   };
 
   try {
@@ -83,7 +115,7 @@ const getCustomerIdentity = () => {
     );
   } catch (error) {
     console.error(
-      "Failed to save customer identity:",
+      "Failed to save guest customer:",
       error
     );
   }
@@ -92,20 +124,42 @@ const getCustomerIdentity = () => {
 };
 
 /* =========================================================
-   SAFE STORAGE READER
+   SAVE GUEST CUSTOMER
+========================================================= */
+
+const saveCustomer = (customer) => {
+  try {
+    localStorage.setItem(
+      CUSTOMER_KEY,
+      JSON.stringify(customer)
+    );
+  } catch (error) {
+    console.error(
+      "Failed to save guest customer:",
+      error
+    );
+  }
+};
+
+/* =========================================================
+   SAFE STORAGE ARRAY
 ========================================================= */
 
 const readStorageArray = (key) => {
   try {
-    const saved = localStorage.getItem(key);
+    const saved =
+      localStorage.getItem(key);
 
     if (!saved) {
       return [];
     }
 
-    const parsed = JSON.parse(saved);
+    const parsed =
+      JSON.parse(saved);
 
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed)
+      ? parsed
+      : [];
   } catch (error) {
     console.error(
       `Failed to read ${key}:`,
@@ -117,29 +171,22 @@ const readStorageArray = (key) => {
 };
 
 /* =========================================================
-   SAVE CUSTOMER IDENTITY
+   MONEY
 ========================================================= */
 
-const saveCustomerIdentity = (customer) => {
-  try {
-    localStorage.setItem(
-      CUSTOMER_KEY,
-      JSON.stringify(customer)
-    );
-  } catch (error) {
-    console.error(
-      "Failed to save customer identity:",
-      error
-    );
-  }
+const formatMoney = (amount) => {
+  return Number(amount || 0).toFixed(2);
 };
 
 /* =========================================================
-   PAYMENT
+   PAYMENT PAGE
 ========================================================= */
 
 function Payment() {
   const navigate = useNavigate();
+
+  const [searchParams] =
+    useSearchParams();
 
   const {
     cart,
@@ -147,41 +194,87 @@ function Payment() {
     clearCart,
   } = useCart();
 
-  const [trainingBooking, setTrainingBooking] =
-    useState(null);
+  /* =======================================================
+     STATE
+  ======================================================= */
 
   const [customer, setCustomer] =
+    useState(null);
+
+  const [trainingBooking, setTrainingBooking] =
     useState(null);
 
   const [processing, setProcessing] =
     useState(false);
 
+  const [verifying, setVerifying] =
+    useState(false);
+
+  const [error, setError] =
+    useState("");
+
+  const [paymentResult, setPaymentResult] =
+    useState(null);
+
   /* =======================================================
-     LOAD CUSTOMER IDENTITY
+     GUEST CUSTOMER FORM
+  ======================================================= */
+
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+  });
+
+  /* =======================================================
+     FLUTTERWAVE RETURN PARAMETERS
+  ======================================================= */
+
+  const transactionId =
+    searchParams.get(
+      "transaction_id"
+    );
+
+  const txRef =
+    searchParams.get("tx_ref");
+
+  const transactionStatus =
+    searchParams.get(
+      "status"
+    );
+
+  /* =======================================================
+     LOAD GUEST CUSTOMER + TRAINING
   ======================================================= */
 
   useEffect(() => {
-    const identity = getCustomerIdentity();
+    const identity =
+      getCustomerIdentity();
 
     setCustomer(identity);
 
-    /* ===============================================
+    setForm({
+      name: identity.name || "",
+      email: identity.email || "",
+      phone: identity.phone || "",
+    });
+
+    /* =====================================================
        LOAD PENDING TRAINING BOOKING
-    =============================================== */
+    ===================================================== */
 
     try {
-      const pendingTraining =
+      const pending =
         localStorage.getItem(
           PENDING_TRAINING_KEY
         );
 
-      if (!pendingTraining) {
+      if (!pending) {
         return;
       }
 
-      const parsed = JSON.parse(
-        pendingTraining
-      );
+      const parsed =
+        JSON.parse(pending);
 
       if (
         parsed &&
@@ -189,10 +282,10 @@ function Payment() {
       ) {
         setTrainingBooking(parsed);
       }
-    } catch (error) {
+    } catch (storageError) {
       console.error(
         "Failed to load pending training booking:",
-        error
+        storageError
       );
 
       setTrainingBooking(null);
@@ -225,196 +318,459 @@ function Payment() {
   ]);
 
   /* =======================================================
-     FORMAT MONEY
+     FORM CHANGE
   ======================================================= */
 
-  const formatMoney = (amount) => {
-    return Number(amount || 0).toFixed(2);
+  const handleChange = (event) => {
+    const {
+      name,
+      value,
+    } = event.target;
+
+    setForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+
+    setError("");
   };
 
   /* =======================================================
-     EMPTY STATE
+     VERIFY FLUTTERWAVE PAYMENT
+     
+     IMPORTANT:
+     The frontend NEVER decides whether payment succeeded.
+     The backend verifies directly with Flutterwave.
+  ======================================================= */
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const verifyPayment = async () => {
+      if (!transactionId) {
+        return;
+      }
+
+      if (verifying || paymentResult) {
+        return;
+      }
+
+      setVerifying(true);
+      setProcessing(true);
+      setError("");
+
+      try {
+        const response =
+          await fetch(
+            `${API_URL}/api/payments/verify`,
+            {
+              method: "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body: JSON.stringify({
+                transactionId,
+
+                txRef:
+                  txRef || undefined,
+              }),
+            }
+          );
+
+        let data;
+
+        try {
+          data =
+            await response.json();
+        } catch {
+          throw new Error(
+            "Invalid response received from payment server."
+          );
+        }
+
+        if (
+          !response.ok ||
+          !data.success
+        ) {
+          throw new Error(
+            data.message ||
+              "Payment verification failed."
+          );
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        /* ===============================================
+           PAYMENT VERIFIED
+        =============================================== */
+
+        setPaymentResult(
+          data.order
+        );
+
+        /* ===============================================
+           CLEAR PRODUCT CART ONLY AFTER VERIFIED PAYMENT
+        =============================================== */
+
+        if (!isTrainingPayment) {
+          clearCart();
+        }
+
+        /* ===============================================
+           CLEAR TRAINING PAYMENT ONLY AFTER VERIFIED PAYMENT
+        =============================================== */
+
+        if (isTrainingPayment) {
+          localStorage.removeItem(
+            PENDING_TRAINING_KEY
+          );
+        }
+      } catch (verificationError) {
+        if (cancelled) {
+          return;
+        }
+
+        console.error(
+          "Payment verification failed:",
+          verificationError
+        );
+
+        setError(
+          verificationError.message ||
+            "Unable to verify payment."
+        );
+      } finally {
+        if (!cancelled) {
+          setVerifying(false);
+          setProcessing(false);
+        }
+      }
+    };
+
+    verifyPayment();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    transactionId,
+    txRef,
+    isTrainingPayment,
+    clearCart,
+  ]);
+
+  /* =======================================================
+     EMPTY CART
   ======================================================= */
 
   if (
     !isTrainingPayment &&
-    cart.length === 0
+    cart.length === 0 &&
+    !transactionId &&
+    !paymentResult
   ) {
     return (
       <div className="payment-page">
         <div className="container">
-
           <div className="payment-empty">
-
             <div className="payment-empty-icon">
               <FiPackage />
             </div>
 
-            <h1>Your cart is empty</h1>
+            <h1>
+              Your cart is empty
+            </h1>
 
             <p>
-              Add products before proceeding
-              to payment.
+              Add products before
+              proceeding to payment.
             </p>
 
             <Link to="/accounts">
               Browse Marketplace
             </Link>
-
           </div>
-
         </div>
       </div>
     );
   }
 
   /* =======================================================
-     PAYMENT HANDLER
+     SUCCESS
   ======================================================= */
 
-  const handlePayment = () => {
+  if (paymentResult) {
+    return (
+      <div className="payment-page">
+        <div className="container">
+          <div className="payment-success">
+            <div className="payment-success-icon">
+              <FiCheckCircle />
+            </div>
+
+            <span>
+              PAYMENT SUCCESSFUL
+            </span>
+
+            <h1>
+              Payment Confirmed
+            </h1>
+
+            <p>
+              Your payment has been
+              verified successfully and
+              your order has been
+              received.
+            </p>
+
+            <div className="payment-success-order">
+              <span>
+                ORDER ID
+              </span>
+
+              <strong>
+                {paymentResult.orderId}
+              </strong>
+            </div>
+
+            {paymentResult.transactionId && (
+              <div className="payment-success-order">
+                <span>
+                  TRANSACTION ID
+                </span>
+
+                <strong>
+                  {
+                    paymentResult.transactionId
+                  }
+                </strong>
+              </div>
+            )}
+
+            <div className="payment-success-amount">
+              <span>
+                Amount Paid
+              </span>
+
+              <strong>
+                $
+                {formatMoney(
+                  paymentResult.totalUSD
+                )}
+              </strong>
+            </div>
+
+            {paymentResult.totalKES && (
+              <div className="payment-success-order">
+                <span>
+                  AMOUNT PROCESSED
+                </span>
+
+                <strong>
+                  KES{" "}
+                  {formatMoney(
+                    paymentResult.totalKES
+                  )}
+                </strong>
+              </div>
+            )}
+
+            <div className="payment-success-actions">
+              <Link
+                to="/my-orders"
+                className="payment-button"
+              >
+                View My Orders
+              </Link>
+
+              <Link
+                to="/accounts"
+                className="payment-secondary-button"
+              >
+                Continue Shopping
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* =======================================================
+     PAYMENT VERIFICATION ERROR
+  ======================================================= */
+
+  if (
+    error &&
+    transactionId
+  ) {
+    return (
+      <div className="payment-page">
+        <div className="container">
+          <div className="payment-error">
+            <div className="payment-error-icon">
+              <FiAlertCircle />
+            </div>
+
+            <span>
+              PAYMENT VERIFICATION
+            </span>
+
+            <h1>
+              Payment Verification Failed
+            </h1>
+
+            <p>
+              {error}
+            </p>
+
+            {transactionStatus && (
+              <p>
+                Flutterwave returned
+                payment status:{" "}
+                <strong>
+                  {transactionStatus}
+                </strong>
+              </p>
+            )}
+
+            <div className="payment-error-actions">
+              <Link
+                to="/accounts"
+                className="payment-secondary-button"
+              >
+                Return to Marketplace
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* =======================================================
+     START PAYMENT
+  ======================================================= */
+
+  const handlePayment = async () => {
     if (processing) {
+      return;
+    }
+
+    setError("");
+
+    /* =====================================================
+       CUSTOMER VALIDATION
+    ===================================================== */
+
+    const name =
+      form.name.trim();
+
+    const email =
+      form.email.trim();
+
+    const phone =
+      form.phone.trim();
+
+    if (!name) {
+      setError(
+        "Please enter your full name."
+      );
+      return;
+    }
+
+    if (!email) {
+      setError(
+        "Please enter your email address."
+      );
+      return;
+    }
+
+    /* =====================================================
+       EMAIL VALIDATION
+    ===================================================== */
+
+    const emailPattern =
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (
+      !emailPattern.test(email)
+    ) {
+      setError(
+        "Please enter a valid email address."
+      );
+      return;
+    }
+
+    if (!phone) {
+      setError(
+        "Please enter your phone number."
+      );
+      return;
+    }
+
+    /* =====================================================
+       PRODUCT CART VALIDATION
+    ===================================================== */
+
+    if (
+      !isTrainingPayment &&
+      !cart.length
+    ) {
+      setError(
+        "Your cart is empty."
+      );
+      return;
+    }
+
+    /* =====================================================
+       CUSTOMER REFERENCE
+    ===================================================== */
+
+    if (!customer?.customerId) {
+      setError(
+        "Unable to create customer reference."
+      );
       return;
     }
 
     setProcessing(true);
 
     try {
-      /* ===============================================
-         GET CUSTOMER IDENTITY
-      =============================================== */
+      /* ===================================================
+         SAVE GUEST CUSTOMER DETAILS
+         
+         This does NOT create an account.
+      =================================================== */
 
-      const identity =
-        customer || getCustomerIdentity();
+      const updatedCustomer = {
+        ...customer,
 
-      /*
-       * Make absolutely sure the identity exists
-       * before creating an order.
-       */
+        name,
+        email,
+        phone,
+      };
 
-      if (!identity?.customerId) {
-        throw new Error(
-          "Customer identity could not be created."
-        );
-      }
+      setCustomer(
+        updatedCustomer
+      );
 
-      saveCustomerIdentity(identity);
+      saveCustomer(
+        updatedCustomer
+      );
 
-      const paidAt =
-        new Date().toISOString();
-
-      /* =================================================
+      /* ===================================================
          TRAINING PAYMENT
-      ================================================= */
+      =================================================== */
 
       if (isTrainingPayment) {
-        const bookings =
-          readStorageArray(
-            TRAINING_BOOKINGS_KEY
-          );
-
-        /* ===============================================
-           TRAINING BOOKING ID
-        =============================================== */
-
-        const trainingId =
-          trainingBooking.bookingId ||
-          trainingBooking.id ||
-          `TRN-${Date.now()}-${Math.random()
-            .toString(36)
-            .substring(2, 8)
-            .toUpperCase()}`;
-
-        /* ===============================================
-           COMPLETED TRAINING BOOKING
-        =============================================== */
-
-        const completedBooking = {
-          ...trainingBooking,
-
-          /* CUSTOMER IDENTITY */
-          customerId:
-            identity.customerId,
-
-          /* BOOKING IDENTITY */
-          id: trainingBooking.id || trainingId,
-
-          bookingId: trainingId,
-
-          /* PAYMENT */
-          paymentStatus: "Paid",
-          paidAt,
-
-          /* BOOKING STATUS */
-          status: "Pending",
-
-          /* DATES */
-          bookedAt:
-            trainingBooking.bookedAt ||
-            paidAt,
-        };
-
-        /*
-         * Prevent accidentally creating duplicate
-         * copies of the same pending booking.
-         */
-
-        const existingBookingIndex =
-          bookings.findIndex(
-            (booking) =>
-              booking.bookingId === trainingId ||
-              (
-                booking.id === trainingId &&
-                booking.customerId ===
-                  identity.customerId
-              )
-          );
-
-        let updatedBookings;
-
-        if (existingBookingIndex !== -1) {
-          updatedBookings =
-            bookings.map(
-              (booking, index) =>
-                index === existingBookingIndex
-                  ? completedBooking
-                  : booking
-            );
-        } else {
-          updatedBookings = [
-            ...bookings,
-            completedBooking,
-          ];
-        }
-
-        localStorage.setItem(
-          TRAINING_BOOKINGS_KEY,
-          JSON.stringify(
-            updatedBookings
-          )
-        );
-
-        /* REMOVE PENDING PAYMENT */
-        localStorage.removeItem(
-          PENDING_TRAINING_KEY
-        );
-
-        alert(
-          "Payment successful! Your training booking has been submitted."
-        );
-
-        navigate("/my-bookings");
-
-        return;
-      }
-
-      /* =================================================
-         PRODUCT PAYMENT
-      ================================================= */
-
-      if (!cart.length) {
-        alert(
-          "Your cart is empty."
+        setError(
+          "Training payments are not connected yet."
         );
 
         setProcessing(false);
@@ -422,144 +778,106 @@ function Payment() {
         return;
       }
 
-      /* ===============================================
-         LOAD EXISTING PURCHASES
-      =============================================== */
+      /* ===================================================
+         CREATE PRODUCT PAYMENT
+      =================================================== */
 
-      const purchases =
-        readStorageArray(
-          PURCHASES_KEY
+      const response =
+        await fetch(
+          `${API_URL}/api/payments/create`,
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+              paymentType:
+                "product",
+
+              items: cart.map(
+                (item) => ({
+                  productId:
+                    item.productId ||
+                    item.id,
+
+                  quantity:
+                    Math.max(
+                      1,
+                      Math.floor(
+                        Number(
+                          item.quantity || 1
+                        )
+                      )
+                    ),
+                })
+              ),
+
+              customer: {
+                customerId:
+                  updatedCustomer.customerId,
+
+                name,
+
+                email,
+
+                phone,
+              },
+            }),
+          }
         );
 
-      /* ===============================================
-         GENERATE ORDER ID
-      =============================================== */
+      let data;
 
-      const orderId =
-        `ORD-${Date.now()}-${Math.random()
-          .toString(36)
-          .substring(2, 8)
-          .toUpperCase()}`;
+      try {
+        data =
+          await response.json();
+      } catch {
+        throw new Error(
+          "Invalid response received from the payment server."
+        );
+      }
 
-      /* ===============================================
-         CREATE PURCHASE RECORDS
-      =============================================== */
+      if (
+        !response.ok ||
+        !data.success
+      ) {
+        throw new Error(
+          data.message ||
+            "Unable to initialize payment."
+        );
+      }
 
-      const newPurchases =
-        cart.map((product, index) => {
+      /* ===================================================
+         FLUTTERWAVE CHECKOUT URL
+      =================================================== */
 
-          const quantity =
-            Math.max(
-              1,
-              Number(
-                product.quantity || 1
-              )
-            );
+      const checkoutUrl =
+        data.payment?.checkoutUrl;
 
-          const productId =
-            product.productId ||
-            product.id;
+      if (!checkoutUrl) {
+        throw new Error(
+          "Flutterwave checkout URL was not returned."
+        );
+      }
 
-          return {
-            /* =========================================
-               ORIGINAL PRODUCT DATA
-            ========================================= */
+      /* ===================================================
+         REDIRECT TO FLUTTERWAVE
+      =================================================== */
 
-            ...product,
-
-            /* =========================================
-               CUSTOMER IDENTITY
-            ========================================= */
-
-            customerId:
-              identity.customerId,
-
-            /* =========================================
-               ORDER IDENTITY
-            ========================================= */
-
-            orderId,
-
-            purchaseId:
-              `${orderId}-${index + 1}`,
-
-            productId,
-
-            /* =========================================
-               QUANTITY
-            ========================================= */
-
-            quantity,
-
-            /* =========================================
-               PAYMENT
-            ========================================= */
-
-            paymentStatus: "Paid",
-
-            /* =========================================
-               ORDER STATUS
-            ========================================= */
-
-            status: "Pending",
-
-            /* =========================================
-               TIMESTAMPS
-            ========================================= */
-
-            purchasedAt: paidAt,
-
-            paidAt,
-
-            /* =========================================
-               CUSTOMER SNAPSHOT
-               
-               This keeps useful customer information
-               attached to the transaction.
-            ========================================= */
-
-            customerSnapshot: {
-              customerId:
-                identity.customerId,
-
-              createdAt:
-                identity.createdAt,
-            },
-          };
-        });
-
-      /* ===============================================
-         SAVE PURCHASES
-      =============================================== */
-
-      localStorage.setItem(
-        PURCHASES_KEY,
-        JSON.stringify([
-          ...purchases,
-          ...newPurchases,
-        ])
-      );
-
-      /* ===============================================
-         CLEAR CART
-      =============================================== */
-
-      clearCart();
-
-      alert(
-        "Payment successful! Your order has been submitted."
-      );
-
-      navigate("/my-orders");
-
-    } catch (error) {
+      window.location.href =
+        checkoutUrl;
+    } catch (paymentError) {
       console.error(
-        "Payment processing failed:",
-        error
+        "Payment initialization failed:",
+        paymentError
       );
 
-      alert(
-        "Something went wrong while processing your payment. Please try again."
+      setError(
+        paymentError.message ||
+          "Unable to initialize payment."
       );
 
       setProcessing(false);
@@ -572,7 +890,6 @@ function Payment() {
 
   return (
     <div className="payment-page">
-
       <div className="container">
 
         {/* =================================================
@@ -580,47 +897,142 @@ function Payment() {
         ================================================= */}
 
         <div className="payment-header">
-
           <span>
-            {isTrainingPayment
-              ? "TRAINING PAYMENT"
-              : "ORDER PAYMENT"}
+            SECURE GUEST CHECKOUT
           </span>
 
           <h1>
-            Complete Payment
+            Complete Your Payment
           </h1>
 
           <p>
-            {isTrainingPayment
-              ? "Complete your payment to confirm your training booking."
-              : "Complete payment to submit your order."}
+            No account or signup required.
+            Enter your details below to
+            continue securely.
           </p>
+        </div>
+
+        {/* =================================================
+            GUEST CUSTOMER INFORMATION
+        ================================================= */}
+
+        <div className="payment-customer-form">
+
+          <div className="payment-card-header">
+            <div>
+              <span>
+                CUSTOMER INFORMATION
+              </span>
+
+              <h2>
+                Your Details
+              </h2>
+            </div>
+
+            <div className="payment-secure-icon">
+              <FiUser />
+            </div>
+          </div>
+
+          <div className="payment-form-grid">
+
+            {/* FULL NAME */}
+
+            <div className="payment-form-group">
+              <label htmlFor="name">
+                Full Name
+              </label>
+
+              <input
+                id="name"
+                name="name"
+                type="text"
+                value={form.name}
+                onChange={handleChange}
+                placeholder="Enter your full name"
+                autoComplete="name"
+                disabled={processing}
+              />
+            </div>
+
+            {/* EMAIL */}
+
+            <div className="payment-form-group">
+              <label htmlFor="email">
+                Email Address
+              </label>
+
+              <input
+                id="email"
+                name="email"
+                type="email"
+                value={form.email}
+                onChange={handleChange}
+                placeholder="you@example.com"
+                autoComplete="email"
+                disabled={processing}
+              />
+            </div>
+
+            {/* PHONE */}
+
+            <div className="payment-form-group">
+              <label htmlFor="phone">
+                Phone Number
+              </label>
+
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                value={form.phone}
+                onChange={handleChange}
+                placeholder="+254 7XX XXX XXX"
+                autoComplete="tel"
+                disabled={processing}
+              />
+            </div>
+
+          </div>
+
+          {/* =================================================
+              GUEST REFERENCE
+          ================================================= */}
+
+          {customer && (
+            <div className="payment-customer">
+
+              <div className="payment-customer-icon">
+                <FiUser />
+              </div>
+
+              <div>
+                <span>
+                  GUEST CUSTOMER REFERENCE
+                </span>
+
+                <strong>
+                  {customer.customerId}
+                </strong>
+              </div>
+
+              <FiCheckCircle />
+            </div>
+          )}
 
         </div>
 
         {/* =================================================
-            CUSTOMER IDENTITY
+            ERROR
         ================================================= */}
 
-        {customer && (
-          <div className="payment-customer">
+        {error && (
+          <div className="payment-inline-error">
+            <FiAlertCircle />
 
-            <div className="payment-customer-icon">
-              <FiUser />
-            </div>
-
-            <div>
-              <span>
-                CUSTOMER ID
-              </span>
-
-              <strong>
-                {customer.customerId}
-              </strong>
-            </div>
-
-            <FiCheckCircle />
+            <span>
+              {error}
+            </span>
           </div>
         )}
 
@@ -639,15 +1051,13 @@ function Payment() {
             <div className="payment-card-header">
 
               <div>
-
                 <span>
                   SECURE CHECKOUT
                 </span>
 
                 <h2>
-                  Payment Details
+                  Payment Method
                 </h2>
-
               </div>
 
               <div className="payment-secure-icon">
@@ -665,37 +1075,21 @@ function Payment() {
               </div>
 
               <div>
-
                 <strong>
-                  Payment Method
+                  Flutterwave
                 </strong>
 
                 <p>
-                  Secure payment integration
-                  will be connected here.
+                  You will be redirected
+                  to Flutterwave's secure
+                  checkout to complete
+                  your payment.
                 </p>
-
               </div>
 
             </div>
 
-            {/* CUSTOMER REFERENCE */}
-
-            {customer && (
-              <div className="payment-customer-reference">
-
-                <span>
-                  Customer Reference
-                </span>
-
-                <strong>
-                  {customer.customerId}
-                </strong>
-
-              </div>
-            )}
-
-            {/* PAYMENT TOTAL */}
+            {/* AMOUNT */}
 
             <div className="payment-card-total">
 
@@ -704,12 +1098,15 @@ function Payment() {
               </span>
 
               <strong>
-                ${formatMoney(paymentTotal)}
+                $
+                {formatMoney(
+                  paymentTotal
+                )}
               </strong>
 
             </div>
 
-            {/* PAYMENT BUTTON */}
+            {/* PAY BUTTON */}
 
             <button
               type="button"
@@ -720,7 +1117,7 @@ function Payment() {
               <FiLock />
 
               {processing
-                ? "Processing..."
+                ? "Connecting to Flutterwave..."
                 : `Pay $${formatMoney(
                     paymentTotal
                   )}`}
@@ -729,14 +1126,16 @@ function Payment() {
             <p className="payment-security-note">
               <FiLock />
 
-              Your payment and order information
-              is securely processed.
+              Secure guest checkout. Your
+              cart is cleared only after
+              Flutterwave payment verification
+              succeeds.
             </p>
 
           </div>
 
           {/* ===============================================
-              SUMMARY
+              ORDER SUMMARY
           =============================================== */}
 
           <aside className="payment-summary">
@@ -744,177 +1143,107 @@ function Payment() {
             <div className="payment-summary-header">
 
               <span>
-                {isTrainingPayment
-                  ? "BOOKING"
-                  : "YOUR ORDER"}
+                YOUR ORDER
               </span>
 
               <h2>
-                {isTrainingPayment
-                  ? "Training"
-                  : "Order Summary"}
+                Order Summary
               </h2>
 
             </div>
 
-            {/* =============================================
-                TRAINING SUMMARY
-            ============================================= */}
+            <div className="payment-products">
 
-            {isTrainingPayment ? (
+              {cart.map((item) => {
 
-              <div className="payment-training-summary">
-
-                <div className="payment-training-icon">
-                  <FiPackage />
-                </div>
-
-                <h3>
-                  {trainingBooking.training ||
-                    "Training Program"}
-                </h3>
-
-                {trainingBooking.date && (
-                  <p>
-                    <strong>
-                      Date:
-                    </strong>{" "}
-                    {trainingBooking.date}
-                  </p>
-                )}
-
-                {trainingBooking.time && (
-                  <p>
-                    <strong>
-                      Time:
-                    </strong>{" "}
-                    {trainingBooking.time}
-                  </p>
-                )}
-
-                {trainingBooking.level && (
-                  <p>
-                    <strong>
-                      Level:
-                    </strong>{" "}
-                    {trainingBooking.level}
-                  </p>
-                )}
-
-                <div className="payment-total">
-
-                  <span>
-                    Total
-                  </span>
-
-                  <strong>
-                    $
-                    {formatMoney(
-                      trainingBooking.price
-                    )}
-                  </strong>
-
-                </div>
-
-              </div>
-
-            ) : (
-
-              /* ===========================================
-                 PRODUCT SUMMARY
-              =========================================== */
-
-              <div className="payment-products">
-
-                {cart.map((item) => {
-
-                  const quantity =
-                    Math.max(
-                      1,
+                const quantity =
+                  Math.max(
+                    1,
+                    Math.floor(
                       Number(
                         item.quantity || 1
                       )
-                    );
+                    )
+                  );
 
-                  const itemTotal =
-                    Number(
-                      item.price || 0
-                    ) * quantity;
+                const itemTotal =
+                  Number(
+                    item.price || 0
+                  ) * quantity;
 
-                  return (
-                    <div
-                      className="payment-item"
-                      key={item.id}
-                    >
+                return (
+                  <div
+                    className="payment-item"
+                    key={
+                      item.id ||
+                      item.productId
+                    }
+                  >
 
-                      <div className="payment-item-info">
+                    <div className="payment-item-info">
 
-                        {item.image ? (
-
-                          <img
-                            src={item.image}
-                            alt={
-                              item.name ||
-                              "Product"
-                            }
-                          />
-
-                        ) : (
-
-                          <div className="payment-item-placeholder">
-                            <FiShoppingBag />
-                          </div>
-
-                        )}
-
-                        <div>
-
-                          <strong>
-                            {item.name ||
-                              "Product"}
-                          </strong>
-
-                          <span>
-                            Qty: {quantity}
-                          </span>
-
+                      {item.image ? (
+                        <img
+                          src={item.image}
+                          alt={
+                            item.name ||
+                            "Product"
+                          }
+                        />
+                      ) : (
+                        <div className="payment-item-placeholder">
+                          <FiShoppingBag />
                         </div>
+                      )}
 
+                      <div>
+                        <strong>
+                          {item.name ||
+                            "Product"}
+                        </strong>
+
+                        <span>
+                          Qty: {quantity}
+                        </span>
                       </div>
 
-                      <strong>
-                        $
-                        {formatMoney(
-                          itemTotal
-                        )}
-                      </strong>
-
                     </div>
-                  );
-                })}
 
-                <div className="payment-total">
+                    <strong>
+                      $
+                      {formatMoney(
+                        itemTotal
+                      )}
+                    </strong>
 
-                  <span>
-                    Total
-                  </span>
+                  </div>
+                );
+              })}
 
-                  <strong>
-                    $
-                    {formatMoney(total)}
-                  </strong>
+              {/* TOTAL */}
 
-                </div>
+              <div className="payment-total">
+
+                <span>
+                  Total
+                </span>
+
+                <strong>
+                  $
+                  {formatMoney(
+                    total
+                  )}
+                </strong>
 
               </div>
-            )}
+
+            </div>
 
           </aside>
 
         </div>
 
       </div>
-
     </div>
   );
 }

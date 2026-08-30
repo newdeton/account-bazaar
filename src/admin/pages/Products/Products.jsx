@@ -10,59 +10,17 @@ import {
   FiAlertCircle,
   FiEye,
   FiImage,
+  FiRefreshCw,
 } from "react-icons/fi";
 
 import "./Products.css";
 
-const STORAGE_KEY = "accountBazaarProducts";
+const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
-const defaultProducts = [
-  {
-    id: 1,
-    name: "Google Workspace Account",
-    category: "Accounts",
-    description: "Premium Google Workspace account.",
-    price: 25,
-    stock: 12,
-    image: "",
-    status: "Active",
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 2,
-    name: "US Residential Proxy",
-    category: "Proxies",
-    description: "Reliable US residential proxy.",
-    price: 15,
-    stock: 35,
-    image: "",
-    status: "Active",
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 3,
-    name: "Instagram Account",
-    category: "Accounts",
-    description: "Ready-to-use Instagram account.",
-    price: 20,
-    stock: 8,
-    image: "",
-    status: "Active",
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 4,
-    name: "Social Media Management",
-    category: "Services",
-    description:
-      "Professional social media management.",
-    price: 100,
-    stock: 0,
-    image: "",
-    status: "Out of Stock",
-    createdAt: new Date().toISOString(),
-  },
-];
+/* =========================================================
+   DEFAULT FORM
+========================================================= */
 
 const emptyForm = {
   name: "",
@@ -73,35 +31,71 @@ const emptyForm = {
   image: "",
 };
 
+/* =========================================================
+   CATEGORIES
+========================================================= */
+
+const categories = [
+  "Accounts",
+  "Proxies",
+  "Services",
+  "Training",
+];
+
+/* =========================================================
+   SLUG GENERATOR
+========================================================= */
+
+const generateSlug = (value) => {
+  return String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+};
+
+/* =========================================================
+   PRODUCT IDENTIFIER
+========================================================= */
+
+const getProductIdentifier = (product) => {
+  return (
+    product?.productId ||
+    product?._id ||
+    product?.slug ||
+    ""
+  );
+};
+
+/* =========================================================
+   IMAGE HELPER
+========================================================= */
+
+const getProductImage = (product) => {
+  if (product?.image) {
+    return product.image;
+  }
+
+  if (
+    Array.isArray(product?.images) &&
+    product.images.length > 0
+  ) {
+    return product.images[0];
+  }
+
+  return "";
+};
+
+/* =========================================================
+   COMPONENT
+========================================================= */
+
 function Products() {
-  const [products, setProducts] = useState(() => {
-    try {
-      const savedProducts =
-        localStorage.getItem(STORAGE_KEY);
+  const [products, setProducts] = useState([]);
 
-      if (savedProducts) {
-        const parsed = JSON.parse(savedProducts);
-
-        if (Array.isArray(parsed)) {
-          return parsed;
-        }
-      }
-
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(defaultProducts)
-      );
-
-      return defaultProducts;
-    } catch (error) {
-      console.error(
-        "Failed to load products:",
-        error
-      );
-
-      return defaultProducts;
-    }
-  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] =
@@ -110,126 +104,227 @@ function Products() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] =
     useState("all");
-
   const [statusFilter, setStatusFilter] =
     useState("all");
 
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState({
+    ...emptyForm,
+  });
 
   const [previewProduct, setPreviewProduct] =
     useState(null);
 
-  /* =====================================================
-     SAVE PRODUCTS
-  ===================================================== */
+  /* =========================================================
+     STOCK
+  ========================================================= */
 
-  useEffect(() => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify(products)
-    );
-  }, [products]);
+  const getStock = (product) => {
+    const stock = Number(product?.stock);
 
-  /* =====================================================
-     CROSS-TAB SYNC
-  ===================================================== */
+    return Number.isFinite(stock) && stock >= 0
+      ? stock
+      : 0;
+  };
 
-  useEffect(() => {
-    const handleStorage = (event) => {
-      if (event.key !== STORAGE_KEY) return;
+  /* =========================================================
+     AVAILABILITY
+  ========================================================= */
+
+  const isAvailable = (product) => {
+    return getStock(product) > 0;
+  };
+
+  /* =========================================================
+     PRODUCT STATUS
+  ========================================================= */
+
+  const getProductStatus = (product) => {
+    if (product?.isActive === false) {
+      return "Inactive";
+    }
+
+    return isAvailable(product)
+      ? "Available"
+      : "Out of Stock";
+  };
+
+  /* =========================================================
+     STATUS CLASS
+  ========================================================= */
+
+  const getStatusClass = (product) => {
+    if (product?.isActive === false) {
+      return "inactive";
+    }
+
+    return isAvailable(product)
+      ? "active"
+      : "out";
+  };
+
+  /* =========================================================
+     LOAD PRODUCTS
+  ========================================================= */
+
+  const loadProducts = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      /*
+       * IMPORTANT:
+       *
+       * Do NOT use ?active=false here.
+       *
+       * Admin needs to see:
+       * - active products
+       * - inactive products
+       * - out-of-stock products
+       */
+
+      const response = await fetch(
+        `${API_URL}/products`
+      );
+
+      let data = null;
 
       try {
-        const updated =
-          JSON.parse(event.newValue || "[]");
-
-        if (Array.isArray(updated)) {
-          setProducts(updated);
-        }
-      } catch (error) {
-        console.error(
-          "Failed to sync products:",
-          error
+        data = await response.json();
+      } catch {
+        throw new Error(
+          "The server returned an invalid response."
         );
       }
-    };
 
-    window.addEventListener(
-      "storage",
-      handleStorage
-    );
+      if (!response.ok || !data?.success) {
+        throw new Error(
+          data?.message ||
+            "Unable to load products."
+        );
+      }
 
-    return () => {
-      window.removeEventListener(
-        "storage",
-        handleStorage
+      setProducts(
+        Array.isArray(data.products)
+          ? data.products
+          : []
       );
-    };
+    } catch (err) {
+      console.error(
+        "Admin products load error:",
+        err
+      );
+
+      setError(
+        err.message ||
+          "Unable to load products from the server."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* =========================================================
+     INITIAL LOAD
+  ========================================================= */
+
+  useEffect(() => {
+    loadProducts();
   }, []);
 
-  /* =====================================================
+  /* =========================================================
      PRODUCT STATISTICS
-  ===================================================== */
+  ========================================================= */
 
   const productStats = useMemo(() => {
     const total = products.length;
 
-    const active = products.filter(
+    const activeProducts = products.filter(
       (product) =>
-        product.status === "Active" &&
-        Number(product.stock) > 0
+        product?.isActive !== false
+    );
+
+    const available = activeProducts.filter(
+      (product) => isAvailable(product)
     ).length;
 
-    const outOfStock = products.filter(
+    const outOfStock = activeProducts.filter(
+      (product) => !isAvailable(product)
+    ).length;
+
+    const inactive = products.filter(
       (product) =>
-        Number(product.stock) <= 0 ||
-        product.status === "Out of Stock"
+        product?.isActive === false
     ).length;
 
     const totalStock = products.reduce(
-      (total, product) =>
-        total + Number(product.stock || 0),
+      (totalStock, product) =>
+        totalStock + getStock(product),
       0
     );
 
     return {
       total,
-      active,
+      available,
       outOfStock,
+      inactive,
       totalStock,
     };
   }, [products]);
 
-  /* =====================================================
+  /* =========================================================
      FILTER PRODUCTS
-  ===================================================== */
+  ========================================================= */
 
   const filteredProducts = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = search
+      .trim()
+      .toLowerCase();
 
     return products.filter((product) => {
       const matchesSearch =
         !query ||
-        product.name
+        product?.name
           ?.toLowerCase()
           .includes(query) ||
-        product.category
+        product?.category
           ?.toLowerCase()
           .includes(query) ||
-        product.description
+        product?.description
+          ?.toLowerCase()
+          .includes(query) ||
+        product?.productId
+          ?.toLowerCase()
+          .includes(query) ||
+        product?.slug
           ?.toLowerCase()
           .includes(query);
 
       const matchesCategory =
         categoryFilter === "all" ||
-        product.category?.toLowerCase() ===
+        product?.category?.toLowerCase() ===
           categoryFilter.toLowerCase();
 
-      const matchesStatus =
-        statusFilter === "all" ||
-        (statusFilter === "active" &&
-          product.status === "Active") ||
-        (statusFilter === "out" &&
-          product.status === "Out of Stock");
+      const available =
+        isAvailable(product);
+
+      const inactive =
+        product?.isActive === false;
+
+      let matchesStatus = true;
+
+      if (statusFilter === "active") {
+        matchesStatus =
+          !inactive && available;
+      }
+
+      if (statusFilter === "out") {
+        matchesStatus =
+          !inactive && !available;
+      }
+
+      if (statusFilter === "inactive") {
+        matchesStatus = inactive;
+      }
 
       return (
         matchesSearch &&
@@ -244,36 +339,76 @@ function Products() {
     statusFilter,
   ]);
 
-  /* =====================================================
-     FORM
-  ===================================================== */
+  /* =========================================================
+     OPEN ADD FORM
+  ========================================================= */
 
   const openAddForm = () => {
     setEditingProduct(null);
-    setForm(emptyForm);
+
+    setForm({
+      ...emptyForm,
+    });
+
+    setError("");
     setShowForm(true);
   };
 
+  /* =========================================================
+     OPEN EDIT FORM
+  ========================================================= */
+
   const openEditForm = (product) => {
+    if (!product) return;
+
     setEditingProduct(product);
 
     setForm({
       name: product.name || "",
-      category: product.category || "Accounts",
-      description: product.description || "",
-      price: product.price ?? "",
-      stock: product.stock ?? "",
-      image: product.image || "",
+
+      category:
+        product.category
+          ? product.category
+              .charAt(0)
+              .toUpperCase() +
+            product.category.slice(1)
+          : "Accounts",
+
+      description:
+        product.description || "",
+
+      price:
+        product.price ?? "",
+
+      stock:
+        product.stock ?? 0,
+
+      image:
+        getProductImage(product),
     });
 
+    setError("");
     setShowForm(true);
   };
 
+  /* =========================================================
+     CLOSE FORM
+  ========================================================= */
+
   const closeForm = () => {
+    if (saving) return;
+
     setShowForm(false);
     setEditingProduct(null);
-    setForm(emptyForm);
+
+    setForm({
+      ...emptyForm,
+    });
   };
+
+  /* =========================================================
+     FORM CHANGE
+  ========================================================= */
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -284,114 +419,394 @@ function Products() {
     }));
   };
 
-  /* =====================================================
-     SAVE PRODUCT
-  ===================================================== */
+  /* =========================================================
+     CREATE / UPDATE PRODUCT
+  ========================================================= */
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     const name = form.name.trim();
-    const description = form.description.trim();
+
+    const description =
+      form.description.trim();
+
+    const image = form.image.trim();
+
     const price = Number(form.price);
+
     const stock = Number(form.stock);
 
+    /* -------------------------------------------------------
+       VALIDATION
+    ------------------------------------------------------- */
+
     if (!name) {
+      window.alert(
+        "Product name is required."
+      );
+      return;
+    }
+
+    if (!description) {
+      window.alert(
+        "Product description is required."
+      );
       return;
     }
 
     if (
-      Number.isNaN(price) ||
+      !Number.isFinite(price) ||
       price < 0
     ) {
+      window.alert(
+        "Price must be a valid number greater than or equal to 0."
+      );
       return;
     }
 
     if (
-      Number.isNaN(stock) ||
+      !Number.isFinite(stock) ||
       stock < 0
     ) {
+      window.alert(
+        "Stock must be a valid number greater than or equal to 0."
+      );
       return;
     }
 
-    const updatedProduct = {
-      id: editingProduct
-        ? editingProduct.id
-        : Date.now(),
+    /* -------------------------------------------------------
+       GENERATE SLUG
+    ------------------------------------------------------- */
 
-      name,
+    const slug = generateSlug(name);
 
-      category: form.category,
-
-      description,
-
-      price,
-
-      stock,
-
-      image: form.image.trim(),
-
-      status:
-        stock > 0
-          ? "Active"
-          : "Out of Stock",
-
-      createdAt:
-        editingProduct?.createdAt ||
-        new Date().toISOString(),
-
-      updatedAt: new Date().toISOString(),
-    };
-
-    if (editingProduct) {
-      setProducts((currentProducts) =>
-        currentProducts.map((product) =>
-          product.id === editingProduct.id
-            ? updatedProduct
-            : product
-        )
+    if (!slug) {
+      window.alert(
+        "Unable to generate a valid product slug."
       );
-    } else {
-      setProducts((currentProducts) => [
-        updatedProduct,
-        ...currentProducts,
-      ]);
+      return;
     }
 
-    closeForm();
+    try {
+      setSaving(true);
+      setError("");
+
+      /* -----------------------------------------------------
+         PAYLOAD
+      ----------------------------------------------------- */
+
+      const payload = {
+        name,
+
+        slug,
+
+        description,
+
+        category:
+          form.category.toLowerCase(),
+
+        price,
+
+        stock,
+
+        image,
+
+        images: image
+          ? [image]
+          : [],
+
+        currency: "USD",
+
+        deliveryType: "digital",
+
+        /*
+         * Stock is the source of truth
+         * for availability.
+         */
+        unlimitedStock: false,
+
+        /*
+         * New products are active.
+         *
+         * Existing products preserve
+         * their current active state.
+         */
+        ...(editingProduct
+          ? {}
+          : {
+              isActive: true,
+            }),
+      };
+
+      let response;
+
+      /* =====================================================
+         UPDATE
+      ===================================================== */
+
+      if (editingProduct) {
+        const identifier =
+          getProductIdentifier(
+            editingProduct
+          );
+
+        if (!identifier) {
+          throw new Error(
+            "Unable to identify the product."
+          );
+        }
+
+        response = await fetch(
+          `${API_URL}/products/${encodeURIComponent(
+            identifier
+          )}`,
+          {
+            method: "PUT",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify(
+              payload
+            ),
+          }
+        );
+      }
+
+      /* =====================================================
+         CREATE
+      ===================================================== */
+
+      else {
+        response = await fetch(
+          `${API_URL}/products`,
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify(
+              payload
+            ),
+          }
+        );
+      }
+
+      let data = null;
+
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(
+          "The server returned an invalid response."
+        );
+      }
+
+      if (
+        !response.ok ||
+        !data?.success
+      ) {
+        throw new Error(
+          data?.message ||
+            "Unable to save product."
+        );
+      }
+
+      /* -----------------------------------------------------
+         RELOAD FROM DATABASE
+      ----------------------------------------------------- */
+
+      await loadProducts();
+
+      closeForm();
+    } catch (err) {
+      console.error(
+        "Save product error:",
+        err
+      );
+
+      setError(
+        err.message ||
+          "Unable to save product."
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
-  /* =====================================================
-     DELETE PRODUCT
-  ===================================================== */
+  /* =========================================================
+     DELETE / SOFT DELETE
+  ========================================================= */
 
-  const deleteProduct = (id) => {
-    const product = products.find(
-      (item) => item.id === id
-    );
-
+  const deleteProduct = async (product) => {
     if (!product) return;
 
-    const confirmed = window.confirm(
-      `Delete "${product.name}"?\n\nThis action cannot be undone.`
-    );
+    const confirmed =
+      window.confirm(
+        `Remove "${product.name}"?\n\nThe product will no longer be available to customers.`
+      );
 
     if (!confirmed) return;
 
-    setProducts((currentProducts) =>
-      currentProducts.filter(
-        (item) => item.id !== id
-      )
-    );
+    try {
+      setError("");
 
-    if (previewProduct?.id === id) {
-      setPreviewProduct(null);
+      const identifier =
+        getProductIdentifier(product);
+
+      if (!identifier) {
+        throw new Error(
+          "Unable to identify the product."
+        );
+      }
+
+      const response =
+        await fetch(
+          `${API_URL}/products/${encodeURIComponent(
+            identifier
+          )}`,
+          {
+            method: "DELETE",
+          }
+        );
+
+      let data = null;
+
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(
+          "The server returned an invalid response."
+        );
+      }
+
+      if (
+        !response.ok ||
+        !data?.success
+      ) {
+        throw new Error(
+          data?.message ||
+            "Unable to remove product."
+        );
+      }
+
+      /*
+       * Remove from current admin list.
+       *
+       * Backend performs a soft delete.
+       */
+      setProducts(
+        (currentProducts) =>
+          currentProducts.filter(
+            (item) =>
+              getProductIdentifier(
+                item
+              ) !== identifier
+          )
+      );
+
+      if (
+        previewProduct &&
+        getProductIdentifier(
+          previewProduct
+        ) === identifier
+      ) {
+        setPreviewProduct(null);
+      }
+    } catch (err) {
+      console.error(
+        "Delete product error:",
+        err
+      );
+
+      setError(
+        err.message ||
+          "Unable to remove product."
+      );
     }
   };
 
-  /* =====================================================
-     PRODUCT PREVIEW
-  ===================================================== */
+  /* =========================================================
+     RESTORE PRODUCT
+  ========================================================= */
+
+  const restoreProduct = async (product) => {
+    if (!product) return;
+
+    try {
+      setError("");
+
+      const identifier =
+        getProductIdentifier(product);
+
+      if (!identifier) {
+        throw new Error(
+          "Unable to identify the product."
+        );
+      }
+
+      const response =
+        await fetch(
+          `${API_URL}/products/${encodeURIComponent(
+            identifier
+          )}`,
+          {
+            method: "PUT",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+              isActive: true,
+            }),
+          }
+        );
+
+      let data = null;
+
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(
+          "The server returned an invalid response."
+        );
+      }
+
+      if (
+        !response.ok ||
+        !data?.success
+      ) {
+        throw new Error(
+          data?.message ||
+            "Unable to restore product."
+        );
+      }
+
+      await loadProducts();
+    } catch (err) {
+      console.error(
+        "Restore product error:",
+        err
+      );
+
+      setError(
+        err.message ||
+          "Unable to restore product."
+      );
+    }
+  };
+
+  /* =========================================================
+     PREVIEW
+  ========================================================= */
 
   const openPreview = (product) => {
     setPreviewProduct(product);
@@ -401,13 +816,15 @@ function Products() {
     setPreviewProduct(null);
   };
 
-  /* =====================================================
+  /* =========================================================
      ESCAPE KEY
-  ===================================================== */
+  ========================================================= */
 
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (event.key !== "Escape") return;
+      if (event.key !== "Escape") {
+        return;
+      }
 
       if (previewProduct) {
         closePreview();
@@ -427,57 +844,140 @@ function Products() {
         handleKeyDown
       );
     };
-  }, [previewProduct, showForm]);
+  }, [
+    previewProduct,
+    showForm,
+    saving,
+  ]);
 
-  /* =====================================================
-     STATUS CLASS
-  ===================================================== */
+  /* =========================================================
+     FORMAT DATE
+  ========================================================= */
 
-  const getStatusClass = (product) => {
-    if (
-      product.status === "Active" &&
-      Number(product.stock) > 0
-    ) {
-      return "active";
+  const formatDate = (product) => {
+    const date =
+      product?.updatedAt ||
+      product?.createdAt;
+
+    if (!date) {
+      return "—";
     }
 
-    return "out";
+    const parsedDate =
+      new Date(date);
+
+    if (
+      Number.isNaN(
+        parsedDate.getTime()
+      )
+    ) {
+      return "—";
+    }
+
+    return parsedDate.toLocaleDateString(
+      "en-US",
+      {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }
+    );
   };
+
+  /* =========================================================
+     RENDER
+  ========================================================= */
 
   return (
     <div className="admin-products">
 
-      {/* =================================================
+      {/* =====================================================
           HEADER
-      ================================================= */}
+      ===================================================== */}
 
       <div className="products-heading">
 
         <div>
-          <span>MARKETPLACE INVENTORY</span>
+          <span>
+            MARKETPLACE INVENTORY
+          </span>
 
-          <h1>Products</h1>
+          <h1>
+            Products
+          </h1>
 
           <p>
-            Manage your marketplace inventory,
-            availability and customer-facing products.
+            Manage your marketplace
+            inventory, availability and
+            customer-facing products.
           </p>
         </div>
 
-        <button
-          type="button"
-          className="add-product-button"
-          onClick={openAddForm}
+        <div
+          style={{
+            display: "flex",
+            gap: "10px",
+          }}
         >
-          <FiPlus />
-          Add Product
-        </button>
+
+          <button
+            type="button"
+            className="add-product-button"
+            onClick={loadProducts}
+            disabled={loading}
+            title="Refresh products"
+          >
+            <FiRefreshCw
+              className={
+                loading
+                  ? "products-refresh-spin"
+                  : ""
+              }
+            />
+
+            Refresh
+          </button>
+
+          <button
+            type="button"
+            className="add-product-button"
+            onClick={openAddForm}
+          >
+            <FiPlus />
+
+            Add Product
+          </button>
+
+        </div>
 
       </div>
 
-      {/* =================================================
-          INVENTORY SUMMARY
-      ================================================= */}
+      {/* =====================================================
+          ERROR
+      ===================================================== */}
+
+      {error && (
+        <div className="products-error">
+
+          <FiAlertCircle />
+
+          <span>
+            {error}
+          </span>
+
+          <button
+            type="button"
+            onClick={loadProducts}
+          >
+            Try Again
+          </button>
+
+        </div>
+      )}
+
+      {/* =====================================================
+          SUMMARY
+      ===================================================== */}
 
       <div className="products-summary">
 
@@ -488,7 +988,10 @@ function Products() {
           </div>
 
           <div>
-            <span>Total Products</span>
+            <span>
+              Total Products
+            </span>
+
             <strong>
               {productStats.total}
             </strong>
@@ -503,9 +1006,12 @@ function Products() {
           </div>
 
           <div>
-            <span>Active Products</span>
+            <span>
+              Available Products
+            </span>
+
             <strong>
-              {productStats.active}
+              {productStats.available}
             </strong>
           </div>
 
@@ -518,7 +1024,10 @@ function Products() {
           </div>
 
           <div>
-            <span>Out of Stock</span>
+            <span>
+              Out of Stock
+            </span>
+
             <strong>
               {productStats.outOfStock}
             </strong>
@@ -533,7 +1042,10 @@ function Products() {
           </div>
 
           <div>
-            <span>Total Inventory</span>
+            <span>
+              Total Inventory
+            </span>
+
             <strong>
               {productStats.totalStock}
             </strong>
@@ -543,9 +1055,9 @@ function Products() {
 
       </div>
 
-      {/* =================================================
+      {/* =====================================================
           TOOLBAR
-      ================================================= */}
+      ===================================================== */}
 
       <div className="products-toolbar">
 
@@ -558,7 +1070,9 @@ function Products() {
             placeholder="Search products..."
             value={search}
             onChange={(event) =>
-              setSearch(event.target.value)
+              setSearch(
+                event.target.value
+              )
             }
           />
 
@@ -589,21 +1103,17 @@ function Products() {
             All Categories
           </option>
 
-          <option value="accounts">
-            Accounts
-          </option>
+          {categories.map(
+            (category) => (
+              <option
+                key={category}
+                value={category.toLowerCase()}
+              >
+                {category}
+              </option>
+            )
+          )}
 
-          <option value="proxies">
-            Proxies
-          </option>
-
-          <option value="services">
-            Services
-          </option>
-
-          <option value="training">
-            Training
-          </option>
         </select>
 
         <select
@@ -619,19 +1129,24 @@ function Products() {
           </option>
 
           <option value="active">
-            Active
+            Available
           </option>
 
           <option value="out">
             Out of Stock
           </option>
+
+          <option value="inactive">
+            Inactive
+          </option>
+
         </select>
 
       </div>
 
-      {/* =================================================
-          RESULT COUNT
-      ================================================= */}
+      {/* =====================================================
+          RESULT BAR
+      ===================================================== */}
 
       <div className="products-result-bar">
 
@@ -654,8 +1169,12 @@ function Products() {
             type="button"
             onClick={() => {
               setSearch("");
-              setCategoryFilter("all");
-              setStatusFilter("all");
+              setCategoryFilter(
+                "all"
+              );
+              setStatusFilter(
+                "all"
+              );
             }}
           >
             Clear filters
@@ -664,230 +1183,315 @@ function Products() {
 
       </div>
 
-      {/* =================================================
-          TABLE
-      ================================================= */}
+      {/* =====================================================
+          LOADING / TABLE
+      ===================================================== */}
 
-      <div className="products-table-wrapper">
+      {loading ? (
+        <div className="products-empty">
 
-        <table className="products-table">
+          <FiRefreshCw className="products-refresh-spin" />
 
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th>Category</th>
-              <th>Price</th>
-              <th>Stock</th>
-              <th>Status</th>
-              <th>Updated</th>
-              <th></th>
-            </tr>
-          </thead>
+          <strong>
+            Loading products...
+          </strong>
 
-          <tbody>
+          <span>
+            Retrieving inventory from
+            the server.
+          </span>
 
-            {filteredProducts.length > 0 ? (
+        </div>
+      ) : (
+        <div className="products-table-wrapper">
 
-              filteredProducts.map((product) => (
+          <table className="products-table">
 
-                <tr key={product.id}>
+            <thead>
 
-                  {/* PRODUCT */}
+              <tr>
+                <th>
+                  Product
+                </th>
 
-                  <td>
+                <th>
+                  Category
+                </th>
 
-                    <div className="product-name">
+                <th>
+                  Price
+                </th>
 
-                      <div className="product-image">
+                <th>
+                  Stock
+                </th>
 
-                        {product.image ? (
-                          <img
-                            src={product.image}
-                            alt={product.name}
-                          />
-                        ) : (
-                          <span>
-                            {product.name
-                              ?.charAt(0)
-                              ?.toUpperCase() || "P"}
+                <th>
+                  Status
+                </th>
+
+                <th>
+                  Updated
+                </th>
+
+                <th></th>
+              </tr>
+
+            </thead>
+
+            <tbody>
+
+              {filteredProducts.length > 0 ? (
+                filteredProducts.map(
+                  (product) => {
+                    const stock =
+                      getStock(product);
+
+                    const image =
+                      getProductImage(
+                        product
+                      );
+
+                    const inactive =
+                      product?.isActive ===
+                      false;
+
+                    return (
+                      <tr
+                        key={
+                          getProductIdentifier(
+                            product
+                          )
+                        }
+                      >
+
+                        {/* PRODUCT */}
+
+                        <td>
+
+                          <div className="product-name">
+
+                            <div className="product-image">
+
+                              {image ? (
+                                <img
+                                  src={image}
+                                  alt={
+                                    product.name ||
+                                    "Product"
+                                  }
+                                  loading="lazy"
+                                  onError={(
+                                    event
+                                  ) => {
+                                    event.currentTarget.style.display =
+                                      "none";
+                                  }}
+                                />
+                              ) : (
+                                <span>
+                                  {product.name
+                                    ?.charAt(
+                                      0
+                                    )
+                                    ?.toUpperCase() ||
+                                    "P"}
+                                </span>
+                              )}
+
+                            </div>
+
+                            <div>
+
+                              <strong>
+                                {
+                                  product.name
+                                }
+                              </strong>
+
+                              <small>
+                                {product.description ||
+                                  "No description"}
+                              </small>
+
+                            </div>
+
+                          </div>
+
+                        </td>
+
+                        {/* CATEGORY */}
+
+                        <td>
+
+                          <span className="category-badge">
+                            {product.category ||
+                              "Product"}
                           </span>
-                        )}
 
-                      </div>
+                        </td>
 
-                      <div>
-                        <strong>
-                          {product.name}
-                        </strong>
+                        {/* PRICE */}
 
-                        <small>
-                          {product.description ||
-                            "No description"}
-                        </small>
-                      </div>
+                        <td>
 
-                    </div>
+                          <strong>
+                            {product.currency ||
+                              "USD"}{" "}
+                            {Number(
+                              product.price ||
+                                0
+                            ).toFixed(2)}
+                          </strong>
 
-                  </td>
+                        </td>
 
-                  {/* CATEGORY */}
+                        {/* STOCK */}
 
-                  <td>
+                        <td>
 
-                    <span className="category-badge">
-                      {product.category}
-                    </span>
+                          <span
+                            className={
+                              stock === 0
+                                ? "stock-empty"
+                                : stock <= 5
+                                ? "stock-low"
+                                : "stock-normal"
+                            }
+                          >
+                            {stock}
+                          </span>
 
-                  </td>
+                        </td>
 
-                  {/* PRICE */}
+                        {/* STATUS */}
 
-                  <td>
+                        <td>
+
+                          <span
+                            className={`status-badge ${getStatusClass(
+                              product
+                            )}`}
+                          >
+                            {getProductStatus(
+                              product
+                            )}
+                          </span>
+
+                        </td>
+
+                        {/* UPDATED */}
+
+                        <td>
+
+                          <span className="product-date">
+                            {formatDate(
+                              product
+                            )}
+                          </span>
+
+                        </td>
+
+                        {/* ACTIONS */}
+
+                        <td>
+
+                          <div className="product-actions">
+
+                            <button
+                              type="button"
+                              title="View Product"
+                              onClick={() =>
+                                openPreview(
+                                  product
+                                )
+                              }
+                            >
+                              <FiEye />
+                            </button>
+
+                            <button
+                              type="button"
+                              title="Edit Product"
+                              onClick={() =>
+                                openEditForm(
+                                  product
+                                )
+                              }
+                            >
+                              <FiEdit2 />
+                            </button>
+
+                            {inactive ? (
+                              <button
+                                type="button"
+                                title="Restore Product"
+                                onClick={() =>
+                                  restoreProduct(
+                                    product
+                                  )
+                                }
+                              >
+                                <FiRefreshCw />
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                title="Delete Product"
+                                onClick={() =>
+                                  deleteProduct(
+                                    product
+                                  )
+                                }
+                              >
+                                <FiTrash2 />
+                              </button>
+                            )}
+
+                          </div>
+
+                        </td>
+
+                      </tr>
+                    );
+                  }
+                )
+              ) : (
+                <tr>
+
+                  <td
+                    colSpan="7"
+                    className="products-empty"
+                  >
+
+                    <FiPackage />
 
                     <strong>
-                      $
-                      {Number(
-                        product.price || 0
-                      ).toFixed(2)}
+                      No products found
                     </strong>
 
-                  </td>
-
-                  {/* STOCK */}
-
-                  <td>
-
-                    <span
-                      className={
-                        Number(product.stock) === 0
-                          ? "stock-empty"
-                          : Number(product.stock) <= 5
-                          ? "stock-low"
-                          : "stock-normal"
-                      }
-                    >
-                      {product.stock}
+                    <span>
+                      Try changing your
+                      search or filters.
                     </span>
-
-                  </td>
-
-                  {/* STATUS */}
-
-                  <td>
-
-                    <span
-                      className={`status-badge ${getStatusClass(
-                        product
-                      )}`}
-                    >
-                      {product.status}
-                    </span>
-
-                  </td>
-
-                  {/* UPDATED */}
-
-                  <td>
-
-                    <span className="product-date">
-                      {product.updatedAt
-                        ? new Date(
-                            product.updatedAt
-                          ).toLocaleDateString(
-                            "en-US",
-                            {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            }
-                          )
-                        : "—"}
-                    </span>
-
-                  </td>
-
-                  {/* ACTIONS */}
-
-                  <td>
-
-                    <div className="product-actions">
-
-                      <button
-                        type="button"
-                        title="View Product"
-                        onClick={() =>
-                          openPreview(product)
-                        }
-                      >
-                        <FiEye />
-                      </button>
-
-                      <button
-                        type="button"
-                        title="Edit Product"
-                        onClick={() =>
-                          openEditForm(product)
-                        }
-                      >
-                        <FiEdit2 />
-                      </button>
-
-                      <button
-                        type="button"
-                        title="Delete Product"
-                        onClick={() =>
-                          deleteProduct(product.id)
-                        }
-                      >
-                        <FiTrash2 />
-                      </button>
-
-                    </div>
 
                   </td>
 
                 </tr>
+              )}
 
-              ))
+            </tbody>
 
-            ) : (
+          </table>
 
-              <tr>
+        </div>
+      )}
 
-                <td
-                  colSpan="7"
-                  className="products-empty"
-                >
-
-                  <FiPackage />
-
-                  <strong>
-                    No products found
-                  </strong>
-
-                  <span>
-                    Try changing your search or
-                    filters.
-                  </span>
-
-                </td>
-
-              </tr>
-
-            )}
-
-          </tbody>
-
-        </table>
-
-      </div>
-
-      {/* =================================================
+      {/* =====================================================
           ADD / EDIT MODAL
-      ================================================= */}
+      ===================================================== */}
 
       {showForm && (
-
         <div
           className="product-modal-overlay"
           onClick={closeForm}
@@ -918,8 +1522,8 @@ function Products() {
 
                 <p>
                   {editingProduct
-                    ? "Update the product information shown across the marketplace."
-                    : "Create a new product for your marketplace inventory."}
+                    ? "Update the product information and stock."
+                    : "Create a new product for your marketplace."}
                 </p>
 
               </div>
@@ -927,6 +1531,7 @@ function Products() {
               <button
                 type="button"
                 onClick={closeForm}
+                disabled={saving}
                 aria-label="Close"
               >
                 <FiX />
@@ -971,21 +1576,18 @@ function Products() {
                     value={form.category}
                     onChange={handleChange}
                   >
-                    <option>
-                      Accounts
-                    </option>
 
-                    <option>
-                      Proxies
-                    </option>
+                    {categories.map(
+                      (category) => (
+                        <option
+                          key={category}
+                          value={category}
+                        >
+                          {category}
+                        </option>
+                      )
+                    )}
 
-                    <option>
-                      Services
-                    </option>
-
-                    <option>
-                      Training
-                    </option>
                   </select>
 
                 </div>
@@ -1002,10 +1604,13 @@ function Products() {
 
                 <textarea
                   name="description"
-                  value={form.description}
+                  value={
+                    form.description
+                  }
                   onChange={handleChange}
                   placeholder="Describe what the customer receives..."
                   rows="4"
+                  required
                 />
 
               </div>
@@ -1050,6 +1655,12 @@ function Products() {
                     required
                   />
 
+                  <small>
+                    Stock greater than 0 =
+                    Available. Stock 0 =
+                    Out of Stock.
+                  </small>
+
                 </div>
 
               </div>
@@ -1059,10 +1670,13 @@ function Products() {
               <div className="form-group">
 
                 <label>
-                  Product Image URL
+
+                  Product Image URL{" "}
+
                   <span className="optional-label">
                     Optional
                   </span>
+
                 </label>
 
                 <div className="image-input-wrapper">
@@ -1084,20 +1698,38 @@ function Products() {
               {/* IMAGE PREVIEW */}
 
               {form.image && (
-
                 <div className="form-image-preview">
 
                   <img
                     src={form.image}
                     alt="Product preview"
-                    onError={(event) => {
+                    onError={(
+                      event
+                    ) => {
                       event.currentTarget.style.display =
                         "none";
                     }}
                   />
 
                 </div>
+              )}
 
+              {/* GENERATED SLUG */}
+
+              {form.name && (
+                <div className="product-slug-preview">
+
+                  <span>
+                    Product URL identifier
+                  </span>
+
+                  <strong>
+                    {generateSlug(
+                      form.name
+                    ) || "—"}
+                  </strong>
+
+                </div>
               )}
 
               {/* ACTIONS */}
@@ -1108,6 +1740,7 @@ function Products() {
                   type="button"
                   className="cancel-product"
                   onClick={closeForm}
+                  disabled={saving}
                 >
                   Cancel
                 </button>
@@ -1115,8 +1748,15 @@ function Products() {
                 <button
                   type="submit"
                   className="save-product"
+                  disabled={saving}
                 >
-                  {editingProduct ? (
+
+                  {saving ? (
+                    <>
+                      <FiRefreshCw className="products-refresh-spin" />
+                      Saving...
+                    </>
+                  ) : editingProduct ? (
                     <>
                       <FiEdit2 />
                       Save Changes
@@ -1127,6 +1767,7 @@ function Products() {
                       Add Product
                     </>
                   )}
+
                 </button>
 
               </div>
@@ -1136,15 +1777,13 @@ function Products() {
           </div>
 
         </div>
-
       )}
 
-      {/* =================================================
+      {/* =====================================================
           PRODUCT PREVIEW
-      ================================================= */}
+      ===================================================== */}
 
       {previewProduct && (
-
         <div
           className="product-preview-overlay"
           onClick={closePreview}
@@ -1166,12 +1805,20 @@ function Products() {
               <FiX />
             </button>
 
+            {/* IMAGE */}
+
             <div className="product-preview-image">
 
-              {previewProduct.image ? (
+              {getProductImage(
+                previewProduct
+              ) ? (
                 <img
-                  src={previewProduct.image}
-                  alt={previewProduct.name}
+                  src={getProductImage(
+                    previewProduct
+                  )}
+                  alt={
+                    previewProduct.name
+                  }
                 />
               ) : (
                 <FiPackage />
@@ -1179,10 +1826,13 @@ function Products() {
 
             </div>
 
+            {/* CONTENT */}
+
             <div className="product-preview-content">
 
               <span className="category-badge">
-                {previewProduct.category}
+                {previewProduct.category ||
+                  "Product"}
               </span>
 
               <h2>
@@ -1197,33 +1847,53 @@ function Products() {
               <div className="product-preview-meta">
 
                 <div>
-                  <span>Price</span>
+
+                  <span>
+                    Price
+                  </span>
 
                   <strong>
-                    $
+                    {previewProduct.currency ||
+                      "USD"}{" "}
                     {Number(
-                      previewProduct.price || 0
+                      previewProduct.price ||
+                        0
                     ).toFixed(2)}
                   </strong>
+
                 </div>
 
                 <div>
-                  <span>Stock</span>
+
+                  <span>
+                    Stock
+                  </span>
 
                   <strong>
-                    {previewProduct.stock}
+                    {getStock(
+                      previewProduct
+                    )}
                   </strong>
+
                 </div>
 
                 <div>
-                  <span>Status</span>
+
+                  <span>
+                    Status
+                  </span>
 
                   <strong>
-                    {previewProduct.status}
+                    {getProductStatus(
+                      previewProduct
+                    )}
                   </strong>
+
                 </div>
 
               </div>
+
+              {/* ACTIONS */}
 
               <div className="product-preview-actions">
 
@@ -1240,17 +1910,33 @@ function Products() {
                   Edit Product
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    deleteProduct(
-                      previewProduct.id
-                    )
-                  }
-                >
-                  <FiTrash2 />
-                  Delete
-                </button>
+                {previewProduct.isActive ===
+                false ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closePreview();
+                      restoreProduct(
+                        previewProduct
+                      );
+                    }}
+                  >
+                    <FiRefreshCw />
+                    Restore
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      deleteProduct(
+                        previewProduct
+                      )
+                    }
+                  >
+                    <FiTrash2 />
+                    Delete
+                  </button>
+                )}
 
               </div>
 
@@ -1259,7 +1945,6 @@ function Products() {
           </div>
 
         </div>
-
       )}
 
     </div>

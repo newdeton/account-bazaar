@@ -13,6 +13,8 @@ import Cart from "./pages/Cart/Cart";
 import Contact from "./pages/Contact/Contact";
 import MyBookings from "./pages/MyBookings/MyBookings";
 import MyOrders from "./pages/MyOrders/MyOrders";
+import Payment from "./pages/Payment/Payment";
+import Auth from "./pages/Auth/Auth";
 
 /* ADMIN */
 import AdminLayout from "./admin/layout/AdminLayout";
@@ -25,15 +27,33 @@ import AdminTraining from "./admin/pages/Training/Training";
 import AdminMessages from "./admin/pages/Messages/Messages";
 import AdminSettings from "./admin/pages/Settings/Settings";
 
-import Payment from "./pages/Payment/Payment";
-
 import "./App.css";
 
 function App() {
   return (
     <Routes>
+      {/* =====================================================
+          AUTHENTICATION
+      ===================================================== */}
 
-      {/* ================= USER WEBSITE ================= */}
+      <Route
+        path="/auth"
+        element={<Auth />}
+      />
+
+      <Route
+        path="/login"
+        element={<Auth mode="login" />}
+      />
+
+      <Route
+        path="/register"
+        element={<Auth mode="register" />}
+      />
+
+      {/* =====================================================
+          USER WEBSITE
+      ===================================================== */}
 
       <Route
         path="/*"
@@ -43,24 +63,61 @@ function App() {
 
             <main className="main-content">
               <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/accounts" element={<Accounts />} />
-                <Route path="/proxies" element={<Proxies />} />
-                <Route path="/training" element={<Training />} />
-                <Route path="/services" element={<Services />} />
+                <Route
+                  path="/"
+                  element={<Home />}
+                />
+
+                <Route
+                  path="/accounts"
+                  element={<Accounts />}
+                />
+
+                <Route
+                  path="/proxies"
+                  element={<Proxies />}
+                />
+
+                <Route
+                  path="/training"
+                  element={<Training />}
+                />
+
+                <Route
+                  path="/services"
+                  element={<Services />}
+                />
+
                 <Route
                   path="/product/:id"
                   element={<ProductDetails />}
                 />
-                <Route path="/cart" element={<Cart />} />
-                <Route path="/contact" element={<Contact />} />
+
+                <Route
+                  path="/cart"
+                  element={<Cart />}
+                />
+
+                <Route
+                  path="/contact"
+                  element={<Contact />}
+                />
+
                 <Route
                   path="/my-bookings"
                   element={<MyBookings />}
                 />
-                <Route path="/payment" element={<Payment />} />
+
+                <Route
+                  path="/my-orders"
+                  element={<MyOrders />}
+                />
+
+                <Route
+                  path="/payment"
+                  element={<Payment />}
+                />
               </Routes>
-              <Route path="/my-orders" element={<MyOrders />} />
             </main>
 
             <Footer />
@@ -68,11 +125,18 @@ function App() {
         }
       />
 
-      {/* ================= ADMIN ================= */}
+      {/* =====================================================
+          ADMIN
+      ===================================================== */}
 
-      <Route path="/admin" element={<AdminLayout />}>
-
-        <Route index element={<Dashboard />} />
+      <Route
+        path="/admin"
+        element={<AdminLayout />}
+      >
+        <Route
+          index
+          element={<Dashboard />}
+        />
 
         <Route
           path="accounts"
@@ -108,9 +172,7 @@ function App() {
           path="settings"
           element={<AdminSettings />}
         />
-
       </Route>
-
     </Routes>
   );
 }

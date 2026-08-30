@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 import {
   FiUserCheck,
   FiGlobe,
@@ -12,21 +14,63 @@ import CategoryCard from "../../components/CategoryCard/CategoryCard";
 import ProductCard from "../../components/ProductCard/ProductCard";
 import SectionTitle from "../../components/SectionTitle/SectionTitle";
 
-import products from "../../data/products";
-
 import "./Home.css";
 
+const API_URL = "http://localhost:5000/api";
+
 function Home() {
-  const featuredProducts = products.filter(
-    (product) => product.featured
-  );
+  const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [productsError, setProductsError] = useState("");
+
+  useEffect(() => {
+    const fetchFeaturedProducts = async () => {
+      try {
+        setLoadingProducts(true);
+        setProductsError("");
+
+        const response = await fetch(
+          `${API_URL}/products?featured=true`
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          throw new Error(
+            data.message || "Failed to load products."
+          );
+        }
+
+        setFeaturedProducts(
+          Array.isArray(data.products)
+            ? data.products
+            : []
+        );
+      } catch (error) {
+        console.error(
+          "Featured products error:",
+          error
+        );
+
+        setProductsError(
+          "Unable to load featured products."
+        );
+      } finally {
+        setLoadingProducts(false);
+      }
+    };
+
+    fetchFeaturedProducts();
+  }, []);
 
   return (
     <div className="home">
 
       <Hero />
 
-      {/* Categories */}
+      {/* =================================================
+          CATEGORIES
+      ================================================= */}
 
       <section className="home-section categories-section">
         <div className="container">
@@ -68,10 +112,13 @@ function Home() {
             />
 
           </div>
+
         </div>
       </section>
 
-      {/* Featured Products */}
+      {/* =================================================
+          FEATURED PRODUCTS
+      ================================================= */}
 
       <section className="home-section featured-section">
         <div className="container">
@@ -82,19 +129,67 @@ function Home() {
             description="Check out some of the products currently available in our marketplace."
           />
 
-          <div className="products-grid">
-            {featuredProducts.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-              />
-            ))}
-          </div>
+          {loadingProducts && (
+            <div className="products-loading">
+              Loading products...
+            </div>
+          )}
+
+          {!loadingProducts && productsError && (
+            <div className="products-error">
+              {productsError}
+            </div>
+          )}
+
+          {!loadingProducts &&
+            !productsError &&
+            featuredProducts.length === 0 && (
+              <div className="products-empty">
+                No featured products are currently available.
+              </div>
+            )}
+
+          {!loadingProducts &&
+            !productsError &&
+            featuredProducts.length > 0 && (
+              <div className="products-grid">
+                {featuredProducts.map((product) => (
+                  <ProductCard
+                    key={
+                      product.productId ||
+                      product._id
+                    }
+                    product={{
+                      ...product,
+
+                      id:
+                        product.productId ||
+                        product._id,
+
+                      category:
+                        product.category
+                          ? product.category
+                              .charAt(0)
+                              .toUpperCase() +
+                            product.category.slice(1)
+                          : "Product",
+
+                      type:
+                        product.type ||
+                        product.deliveryType ||
+                        "Digital Product",
+                    }}
+                  />
+                ))}
+              </div>
+            )}
 
         </div>
       </section>
 
-      {/* Why Us */}
+      {/* =================================================
+          WHY US
+      ================================================= */}
 
       <section className="home-section why-section">
         <div className="container">
@@ -110,25 +205,34 @@ function Home() {
 
             <div className="why-card">
               <FiShield />
+
               <h3>Reliable</h3>
+
               <p>
-                We focus on providing dependable products and services.
+                We focus on providing dependable products
+                and services.
               </p>
             </div>
 
             <div className="why-card">
               <FiGlobe />
+
               <h3>Wide Selection</h3>
+
               <p>
-                Explore accounts, proxies, training and other services.
+                Explore accounts, proxies, training and
+                other services.
               </p>
             </div>
 
             <div className="why-card">
               <FiHeadphones />
+
               <h3>Customer Support</h3>
+
               <p>
-                Get assistance when you need help with your purchase.
+                Get assistance when you need help with
+                your purchase.
               </p>
             </div>
 
@@ -137,21 +241,31 @@ function Home() {
         </div>
       </section>
 
-      {/* CTA */}
+      {/* =================================================
+          CTA
+      ================================================= */}
 
       <section className="home-cta">
         <div className="container">
 
           <div className="cta-content">
-            <h2>Ready to get started?</h2>
+
+            <h2>
+              Ready to get started?
+            </h2>
 
             <p>
-              Explore the marketplace and find what you need today.
+              Explore the marketplace and find what
+              you need today.
             </p>
 
-            <a href="/accounts" className="cta-button">
+            <a
+              href="/accounts"
+              className="cta-button"
+            >
               Browse Marketplace
             </a>
+
           </div>
 
         </div>

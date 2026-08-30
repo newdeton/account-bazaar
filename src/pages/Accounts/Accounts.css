@@ -1,54 +1,91 @@
+/* =========================================================
+   ACCOUNTS PAGE
+========================================================= */
+
+.accounts-page {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* =========================================================
+   PAGE CONTENT
+========================================================= */
+
 .accounts-content {
-  padding: 75px 0 90px;
+  padding: 85px 0 100px;
   background: var(--background);
 }
+
+/* =========================================================
+   TOOLBAR
+========================================================= */
 
 .accounts-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 15px;
+  gap: 18px;
 
-  margin-bottom: 35px;
-  padding: 15px;
+  margin: 0 0 38px;
+  padding: 18px;
 
   background: var(--surface);
-
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 14px;
+
+  box-shadow: var(--shadow-sm);
 }
+
+/* =========================================================
+   SEARCH
+========================================================= */
 
 .search-box {
   flex: 1;
-  max-width: 500px;
+  max-width: 560px;
 
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 
-  padding: 0 13px;
-
-  border: 1px solid var(--border);
-  border-radius: 7px;
+  min-height: 48px;
+  padding: 0 15px;
 
   background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.search-box:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(216, 137, 74, 0.1);
+  background: var(--surface);
 }
 
 .search-box svg {
+  width: 18px;
+  height: 18px;
   color: var(--text-muted);
   flex-shrink: 0;
 }
 
 .search-box input {
   width: 100%;
-  height: 43px;
+  height: 46px;
+
+  padding: 0;
 
   border: none;
   outline: none;
 
   background: transparent;
-
   color: var(--text);
+
   font-size: 14px;
 }
 
@@ -56,74 +93,140 @@
   color: var(--text-muted);
 }
 
+/* =========================================================
+   FILTER
+========================================================= */
+
 .filter-box {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 
-  padding: 0 12px;
-
-  border: 1px solid var(--border);
-  border-radius: 7px;
+  min-height: 48px;
+  padding: 0 14px;
 
   background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.filter-box:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(216, 137, 74, 0.1);
 }
 
 .filter-box svg {
+  width: 17px;
+  height: 17px;
   color: var(--accent-dark);
+  flex-shrink: 0;
 }
 
 .filter-box select {
-  height: 43px;
+  min-width: 145px;
+  height: 46px;
+
+  padding: 0 4px;
 
   border: none;
   outline: none;
 
   background: transparent;
-
   color: var(--text);
 
   font-size: 14px;
+  font-weight: 600;
+
   cursor: pointer;
 }
 
+/* =========================================================
+   PRODUCTS GRID
+========================================================= */
+
 .accounts-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
+
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+
+  gap: 30px;
+  align-items: stretch;
 }
 
+/*
+   Let the ProductCard itself control its image height.
+   This keeps the Accounts page from shrinking or
+   compressing the product cards.
+*/
+
+.accounts-grid > * {
+  min-width: 0;
+}
+
+/* =========================================================
+   EMPTY / LOADING / ERROR
+========================================================= */
+
 .no-products {
-  padding: 70px 20px;
+  width: 100%;
+
+  padding: 85px 25px;
 
   text-align: center;
 
   background: var(--surface);
 
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 14px;
+
+  box-shadow: var(--shadow-sm);
 }
 
 .no-products h3 {
+  margin: 0 0 9px;
+
   color: var(--primary);
-  margin-bottom: 7px;
+
+  font-size: 20px;
+  font-weight: 800;
 }
 
 .no-products p {
+  max-width: 520px;
+  margin: 0 auto;
+
   color: var(--text-light);
+
   font-size: 14px;
+  line-height: 1.7;
 }
 
-@media (max-width: 900px) {
-  .accounts-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
+/* =========================================================
+   TABLET
+========================================================= */
 
-@media (max-width: 650px) {
+@media (max-width: 1000px) {
+
   .accounts-content {
-    padding: 55px 0 70px;
+    padding: 75px 0 90px;
   }
+
+  .accounts-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 25px;
+  }
+
+}
+
+/* =========================================================
+   SMALL TABLET
+========================================================= */
+
+@media (max-width: 750px) {
 
   .accounts-toolbar {
     flex-direction: column;
@@ -132,6 +235,7 @@
 
   .search-box {
     max-width: none;
+    width: 100%;
   }
 
   .filter-box {
@@ -139,10 +243,70 @@
   }
 
   .filter-box select {
+    flex: 1;
     width: 100%;
+  }
+
+}
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width: 600px) {
+
+  .accounts-content {
+    padding: 60px 0 75px;
+  }
+
+  .accounts-toolbar {
+    margin-bottom: 30px;
+    padding: 14px;
+
+    border-radius: 12px;
+  }
+
+  .search-box,
+  .filter-box {
+    min-height: 46px;
+  }
+
+  .search-box input,
+  .filter-box select {
+    height: 44px;
   }
 
   .accounts-grid {
     grid-template-columns: 1fr;
+    gap: 22px;
   }
+
+  .no-products {
+    padding: 65px 20px;
+  }
+
+}
+
+/* =========================================================
+   VERY SMALL SCREENS
+========================================================= */
+
+@media (max-width: 400px) {
+
+  .accounts-content {
+    padding-top: 50px;
+  }
+
+  .accounts-toolbar {
+    padding: 12px;
+  }
+
+  .search-box {
+    padding: 0 12px;
+  }
+
+  .filter-box {
+    padding: 0 12px;
+  }
+
 }
