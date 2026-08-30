@@ -1,0 +1,118 @@
+.admin-sidebar {
+  position: fixed;
+
+  top: 0;
+  left: 0;
+  bottom: 0;
+
+  width: 250px;
+
+  display: flex;
+  flex-direction: column;
+
+  padding: 25px 15px;
+
+  background: var(--primary);
+
+  color: #fff;
+
+  box-shadow: var(--shadow-md);
+
+  z-index: 1100;
+}
+
+.admin-sidebar-logo {
+  padding: 0 12px 30px;
+
+  font-size: 22px;
+  font-weight: 800;
+
+  letter-spacing: -0.5px;
+}
+
+.admin-sidebar-logo span {
+  color: var(--accent-light);
+}
+
+.admin-sidebar-label {
+  padding: 0 12px 12px;
+
+  color: #bcaea7;
+
+  font-size: 10px;
+  font-weight: 800;
+
+  letter-spacing: 1px;
+}
+
+.admin-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+
+  gap: 5px;
+}
+
+.admin-sidebar-nav a,
+.admin-sidebar-bottom button {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+
+  padding: 12px;
+
+  border: none;
+  border-radius: 7px;
+
+  background: transparent;
+
+  color: #d8cbc4;
+
+  font-family: inherit;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  text-align: left;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.admin-sidebar-nav a svg,
+.admin-sidebar-bottom button svg {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.admin-sidebar-nav a:hover,
+.admin-sidebar-bottom button:hover {
+  background: rgba(255, 255, 255, 0.08);
+
+  color: #fff;
+}
+
+.admin-sidebar-nav a.active {
+  background: var(--accent);
+
+  color: #fff;
+}
+
+.admin-sidebar-bottom {
+  margin-top: auto;
+
+  padding-top: 20px;
+
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+@media (max-width: 800px) {
+  .admin-sidebar {
+    display: none;
+  }
+}

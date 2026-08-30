@@ -1,0 +1,148 @@
+.proxies-content {
+  padding: 75px 0 90px;
+  background: var(--background);
+}
+
+.proxies-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+
+  margin-bottom: 35px;
+  padding: 15px;
+
+  background: var(--surface);
+
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.proxies-toolbar .search-box {
+  flex: 1;
+  max-width: 500px;
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  padding: 0 13px;
+
+  border: 1px solid var(--border);
+  border-radius: 7px;
+
+  background: var(--background);
+}
+
+.proxies-toolbar .search-box svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.proxies-toolbar .search-box input {
+  width: 100%;
+  height: 43px;
+
+  border: none;
+  outline: none;
+
+  background: transparent;
+
+  color: var(--text);
+  font-size: 14px;
+}
+
+.proxies-toolbar .search-box input::placeholder {
+  color: var(--text-muted);
+}
+
+.proxies-toolbar .filter-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 0 12px;
+
+  border: 1px solid var(--border);
+  border-radius: 7px;
+
+  background: var(--background);
+}
+
+.proxies-toolbar .filter-box svg {
+  color: var(--accent-dark);
+}
+
+.proxies-toolbar .filter-box select {
+  height: 43px;
+
+  border: none;
+  outline: none;
+
+  background: transparent;
+
+  color: var(--text);
+
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.proxies-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.no-proxies {
+  padding: 70px 20px;
+
+  text-align: center;
+
+  background: var(--surface);
+
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.no-proxies h3 {
+  color: var(--primary);
+  margin-bottom: 7px;
+}
+
+.no-proxies p {
+  color: var(--text-light);
+  font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  .proxies-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 650px) {
+  .proxies-content {
+    padding: 55px 0 70px;
+  }
+
+  .proxies-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .proxies-toolbar .search-box {
+    max-width: none;
+  }
+
+  .proxies-toolbar .filter-box {
+    width: 100%;
+  }
+
+  .proxies-toolbar .filter-box select {
+    width: 100%;
+  }
+
+  .proxies-grid {
+    grid-template-columns: 1fr;
+  }
+}

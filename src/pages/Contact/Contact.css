@@ -1,0 +1,957 @@
+/* =========================================================
+   CONTACT PAGE
+========================================================= */
+
+.contact-page {
+  min-height: 100vh;
+  padding: 40px;
+  background: #f8fafc;
+  color: #111827;
+}
+
+
+/* =========================================================
+   HERO
+========================================================= */
+
+.contact-hero {
+  margin-bottom: 32px;
+}
+
+.contact-hero > span {
+  display: inline-block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #2563eb;
+}
+
+.contact-hero h1 {
+  margin: 0 0 8px;
+  font-size: 34px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: #111827;
+}
+
+.contact-hero p {
+  max-width: 650px;
+  margin: 0;
+  color: #6b7280;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+
+/* =========================================================
+   MAIN CONTENT
+========================================================= */
+
+.contact-content {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+
+/* =========================================================
+   CONTACT INFO
+========================================================= */
+
+.contact-info {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.contact-info-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 20px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.contact-info-card > svg {
+  flex-shrink: 0;
+  width: 21px;
+  height: 21px;
+  margin-top: 2px;
+  color: #2563eb;
+}
+
+.contact-info-card h3 {
+  margin: 0 0 5px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.contact-info-card p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+
+/* =========================================================
+   CUSTOMER MESSAGES
+========================================================= */
+
+.customer-messages {
+  min-width: 0;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+
+
+/* =========================================================
+   MESSAGES HEADER
+========================================================= */
+
+.customer-messages-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px 26px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.customer-messages-header > div:first-child {
+  min-width: 0;
+}
+
+.customer-messages-header span {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #2563eb;
+}
+
+.customer-messages-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 5px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.customer-messages-header p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+
+/* =========================================================
+   NEW MESSAGE COUNT
+========================================================= */
+
+.new-message-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+
+/* =========================================================
+   NEW MESSAGE BUTTON
+========================================================= */
+
+.new-message-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 11px 16px;
+  border: 0;
+  border-radius: 9px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.new-message-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.new-message-button:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 5px 12px rgba(37, 99, 235, 0.2);
+}
+
+
+/* =========================================================
+   MESSAGE LIST
+========================================================= */
+
+.customer-message-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.customer-message-card {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  padding: 20px 26px;
+  border: 0;
+  border-bottom: 1px solid #f1f5f9;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    padding-left 0.2s ease;
+}
+
+.customer-message-card:last-child {
+  border-bottom: 0;
+}
+
+.customer-message-card:hover {
+  background: #f8fafc;
+  padding-left: 30px;
+}
+
+
+/* =========================================================
+   MESSAGE ICON
+========================================================= */
+
+.customer-message-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.customer-message-icon svg {
+  width: 19px;
+  height: 19px;
+}
+
+
+/* =========================================================
+   MESSAGE CONTENT
+========================================================= */
+
+.customer-message-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.customer-message-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.customer-message-top strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #111827;
+  font-size: 14px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer-message-main p {
+  margin: 0 0 7px;
+  overflow: hidden;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.55;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer-message-main small {
+  color: #9ca3af;
+  font-size: 11px;
+}
+
+
+/* =========================================================
+   NEW REPLY
+========================================================= */
+
+.customer-message-card.has-new-reply {
+  background: #f8fbff;
+}
+
+.customer-message-card.has-new-reply .customer-message-icon {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.customer-message-card.has-new-reply
+  .customer-message-top strong {
+  color: #1d4ed8;
+}
+
+.new-reply-badge {
+  display: inline-flex !important;
+  align-items: center;
+  flex-shrink: 0;
+  margin: 0 !important;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #15803d !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+}
+
+
+/* =========================================================
+   EMPTY STATE
+========================================================= */
+
+.no-customer-messages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  padding: 40px 25px;
+  text-align: center;
+}
+
+.no-customer-messages > svg {
+  width: 42px;
+  height: 42px;
+  margin-bottom: 15px;
+  color: #94a3b8;
+}
+
+.no-customer-messages h3 {
+  margin: 0 0 6px;
+  color: #111827;
+  font-size: 16px;
+}
+
+.no-customer-messages p {
+  margin: 0 0 18px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.no-customer-messages button {
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+
+/* =========================================================
+   CONVERSATION
+========================================================= */
+
+.customer-conversation {
+  display: flex;
+  flex-direction: column;
+  min-height: 500px;
+}
+
+
+/* =========================================================
+   CONVERSATION HEADER
+========================================================= */
+
+.conversation-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 24px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.conversation-header > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.conversation-header > button:hover {
+  background: #f8fafc;
+  color: #111827;
+}
+
+.conversation-header > button svg {
+  width: 17px;
+  height: 17px;
+}
+
+.conversation-header > div {
+  min-width: 0;
+}
+
+.conversation-header strong {
+  display: block;
+  overflow: hidden;
+  margin-bottom: 3px;
+  color: #111827;
+  font-size: 15px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversation-header span {
+  display: block;
+  color: #9ca3af;
+  font-size: 11px;
+}
+
+
+/* =========================================================
+   CONVERSATION BODY
+========================================================= */
+
+.conversation-body {
+  flex: 1;
+  padding: 28px;
+  background: #f8fafc;
+  overflow-y: auto;
+}
+
+
+/* =========================================================
+   CONVERSATION MESSAGES
+========================================================= */
+
+.conversation-message {
+  display: flex;
+  flex-direction: column;
+  max-width: 75%;
+  margin-bottom: 22px;
+}
+
+.conversation-message.customer {
+  align-items: flex-end;
+  margin-left: auto;
+}
+
+.conversation-message.admin {
+  align-items: flex-start;
+  margin-right: auto;
+}
+
+.conversation-message > span {
+  margin-bottom: 6px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.conversation-bubble {
+  max-width: 100%;
+  padding: 13px 16px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.65;
+  word-break: break-word;
+}
+
+.conversation-message.customer .conversation-bubble {
+  border-bottom-right-radius: 4px;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.conversation-message.admin .conversation-bubble {
+  border: 1px solid #e5e7eb;
+  border-bottom-left-radius: 4px;
+  background: #ffffff;
+  color: #334155;
+}
+
+.conversation-message small {
+  margin-top: 5px;
+  color: #94a3b8;
+  font-size: 10px;
+}
+
+
+/* =========================================================
+   CUSTOMER REPLY BOX
+========================================================= */
+
+.customer-reply-box {
+  padding: 16px 22px;
+  border-top: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.customer-reply-box textarea {
+  display: block;
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  padding: 12px 14px;
+  border: 1px solid #dbe2ea;
+  border-radius: 10px;
+  outline: none;
+  background: #f8fafc;
+  color: #111827;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  box-sizing: border-box;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.customer-reply-box textarea::placeholder {
+  color: #9ca3af;
+}
+
+.customer-reply-box textarea:focus {
+  border-color: #2563eb;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+
+.customer-reply-box > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin-top: 10px;
+}
+
+.customer-reply-box > div > span {
+  color: #94a3b8;
+  font-size: 10px;
+}
+
+.customer-reply-box > div > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 15px;
+  border: 0;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.customer-reply-box > div > button:hover {
+  background: #1d4ed8;
+}
+
+.customer-reply-box > div > button svg {
+  width: 15px;
+  height: 15px;
+}
+
+
+/* =========================================================
+   NEW MESSAGE OVERLAY
+========================================================= */
+
+.contact-message-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+
+/* =========================================================
+   NEW MESSAGE MODAL
+========================================================= */
+
+.contact-message-modal {
+  width: min(600px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 25px 60px rgba(15, 23, 42, 0.2);
+}
+
+
+/* =========================================================
+   MODAL HEADER
+========================================================= */
+
+.contact-message-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px 26px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.contact-message-modal-header span {
+  display: block;
+  margin-bottom: 7px;
+  color: #2563eb;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.contact-message-modal-header h2 {
+  margin: 0 0 5px;
+  color: #111827;
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.contact-message-modal-header p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.contact-message-modal-header > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: #f3f4f6;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.contact-message-modal-header > button:hover {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+
+/* =========================================================
+   MESSAGE FORM
+========================================================= */
+
+.contact-message-form {
+  padding: 24px 26px;
+}
+
+.contact-message-form label {
+  display: block;
+  margin-bottom: 7px;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.contact-message-form input,
+.contact-message-form textarea {
+  width: 100%;
+  margin-bottom: 18px;
+  padding: 11px 13px;
+  border: 1px solid #dbe2ea;
+  border-radius: 9px;
+  outline: none;
+  background: #ffffff;
+  color: #111827;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  box-sizing: border-box;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.contact-message-form input {
+  height: 42px;
+}
+
+.contact-message-form textarea {
+  min-height: 140px;
+  resize: vertical;
+}
+
+.contact-message-form input::placeholder,
+.contact-message-form textarea::placeholder {
+  color: #9ca3af;
+}
+
+.contact-message-form input:focus,
+.contact-message-form textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+
+
+/* =========================================================
+   MODAL ACTIONS
+========================================================= */
+
+.contact-message-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.contact-message-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.contact-message-actions button:first-child {
+  border: 1px solid #dbe2ea;
+  background: #ffffff;
+  color: #475569;
+}
+
+.contact-message-actions button:first-child:hover {
+  background: #f8fafc;
+}
+
+.contact-message-actions button:last-child {
+  border: 1px solid #2563eb;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.contact-message-actions button:last-child:hover {
+  border-color: #1d4ed8;
+  background: #1d4ed8;
+}
+
+.contact-message-actions svg {
+  width: 15px;
+  height: 15px;
+}
+
+
+/* =========================================================
+   SCROLLBAR
+========================================================= */
+
+.conversation-body::-webkit-scrollbar,
+.contact-message-modal::-webkit-scrollbar {
+  width: 6px;
+}
+
+.conversation-body::-webkit-scrollbar-track,
+.contact-message-modal::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.conversation-body::-webkit-scrollbar-thumb,
+.contact-message-modal::-webkit-scrollbar-thumb {
+  border-radius: 10px;
+  background: #cbd5e1;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 1000px) {
+  .contact-content {
+    grid-template-columns: 1fr;
+  }
+
+  .contact-info {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+
+@media (max-width: 700px) {
+  .contact-page {
+    padding: 24px 16px;
+  }
+
+  .contact-hero h1 {
+    font-size: 28px;
+  }
+
+  .contact-info {
+    grid-template-columns: 1fr;
+  }
+
+  .customer-messages-header {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 20px;
+  }
+
+  .new-message-button {
+    width: 100%;
+  }
+
+  .customer-message-card {
+    padding: 17px 18px;
+  }
+
+  .customer-message-card:hover {
+    padding-left: 18px;
+  }
+
+  .conversation-body {
+    padding: 20px 16px;
+  }
+
+  .conversation-message {
+    max-width: 88%;
+  }
+
+  .customer-reply-box {
+    padding: 14px 16px;
+  }
+
+  .customer-reply-box > div {
+    align-items: flex-end;
+    flex-direction: column;
+  }
+
+  .customer-reply-box > div > button {
+    width: 100%;
+  }
+
+  .contact-message-overlay {
+    padding: 12px;
+  }
+
+  .contact-message-modal-header,
+  .contact-message-form {
+    padding: 20px;
+  }
+}
+
+
+@media (max-width: 480px) {
+  .contact-hero h1 {
+    font-size: 25px;
+  }
+
+  .customer-messages-header h2 {
+    font-size: 20px;
+  }
+
+  .customer-message-icon {
+    width: 38px;
+    height: 38px;
+  }
+
+  .customer-message-main p {
+  margin: 6px 0 0;
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.6;
+
+  display: block;
+  overflow: hidden;
+  max-height: 44px;
+}
+
+  .customer-message-top {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .new-reply-badge {
+    align-self: flex-start;
+  }
+
+  .conversation-message {
+    max-width: 92%;
+  }
+
+  .contact-message-actions {
+    flex-direction: column-reverse;
+  }
+
+  .contact-message-actions button {
+    width: 100%;
+  }
+}

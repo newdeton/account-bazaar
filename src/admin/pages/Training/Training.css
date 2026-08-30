@@ -1,0 +1,1047 @@
+/* =========================================================
+   ADMIN TRAINING
+   Premium Admin Interface
+   ========================================================= */
+
+.admin-training-page {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  color: var(--primary);
+}
+
+/* =========================================================
+   PAGE HEADER
+   ========================================================= */
+
+.admin-training-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.admin-training-header > div:first-child {
+  min-width: 0;
+}
+
+.admin-training-header > div:first-child span {
+  display: inline-block;
+  color: var(--accent-dark);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+}
+
+.admin-training-header h1 {
+  margin: 6px 0 5px;
+  color: var(--primary);
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.5px;
+}
+
+.admin-training-header p {
+  max-width: 600px;
+  margin: 0;
+  color: #8b7d75;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* =========================================================
+   ADD TRAINING BUTTON
+   ========================================================= */
+
+.add-training-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(43, 26, 18, 0.10);
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.add-training-button:hover {
+  background: var(--accent-dark);
+  border-color: var(--accent-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 9px 24px rgba(43, 26, 18, 0.14);
+}
+
+.add-training-button:active {
+  transform: translateY(0);
+}
+
+.add-training-button svg {
+  font-size: 15px;
+}
+
+/* =========================================================
+   TABS
+   ========================================================= */
+
+.training-admin-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 22px;
+  padding: 5px;
+  background: #eee8e4;
+  border: 1px solid #e5ddd8;
+  border-radius: 10px;
+}
+
+.training-admin-tabs button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 13px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: #796a62;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.training-admin-tabs button:hover {
+  color: var(--primary);
+}
+
+.training-admin-tabs button svg {
+  font-size: 13px;
+}
+
+.training-admin-tabs button.active {
+  background: #fff;
+  color: var(--primary);
+  box-shadow:
+    0 2px 6px rgba(43, 26, 18, 0.07),
+    0 1px 2px rgba(43, 26, 18, 0.04);
+}
+
+.training-admin-tabs button small {
+  min-width: 19px;
+  height: 19px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border-radius: 20px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+/* =========================================================
+   TRAINING GRID
+   ========================================================= */
+
+.admin-training-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+/* =========================================================
+   TRAINING CARD
+   ========================================================= */
+
+.admin-training-card {
+  position: relative;
+  min-width: 0;
+  padding: 21px;
+  background: #fff;
+  border: 1px solid #e8e2de;
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    border-color 0.22s ease;
+}
+
+.admin-training-card:hover {
+  transform: translateY(-3px);
+  border-color: #ddd3cc;
+  box-shadow: var(--shadow-md);
+}
+
+/* =========================================================
+   CARD TOP
+   ========================================================= */
+
+.admin-training-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.admin-training-icon {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #eadfd8;
+  border-radius: 10px;
+  background:
+    linear-gradient(
+      145deg,
+      #f7eee9,
+      #f1e6df
+    );
+  color: var(--accent-dark);
+  font-size: 19px;
+}
+
+.admin-training-card-top > span {
+  padding: 6px 9px;
+  border: 1px solid #e9dfda;
+  border-radius: 6px;
+  background: #f7f3f1;
+  color: #796a62;
+  font-size: 8px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* =========================================================
+   CARD CONTENT
+   ========================================================= */
+
+.admin-training-card h3 {
+  margin: 0 0 8px;
+  color: var(--primary);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.admin-training-card > p {
+  min-height: 66px;
+  margin: 0 0 18px;
+  color: #81736b;
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+/* =========================================================
+   TRAINING META
+   ========================================================= */
+
+.admin-training-info {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 15px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #eee8e4;
+}
+
+.admin-training-info span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #8b7d75;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.admin-training-info svg {
+  color: var(--accent-dark);
+  font-size: 12px;
+}
+
+/* =========================================================
+   CARD BOTTOM
+   ========================================================= */
+
+.admin-training-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding-top: 16px;
+}
+
+.admin-training-bottom strong {
+  color: var(--primary);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+
+.admin-training-bottom > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-training-bottom button {
+  width: 31px;
+  height: 31px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e6ded9;
+  border-radius: 7px;
+  background: #f8f5f3;
+  color: #756861;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.admin-training-bottom button:hover {
+  background: #eee8e4;
+  border-color: #ddd3cc;
+  color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.admin-training-bottom button:last-child {
+  color: #b91c1c;
+}
+
+.admin-training-bottom button:last-child:hover {
+  background: #fef2f2;
+  border-color: #f5d1d1;
+  color: #991b1b;
+}
+
+/* =========================================================
+   EMPTY STATE
+   ========================================================= */
+
+.training-empty {
+  grid-column: 1 / -1;
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 50px 20px;
+  background: #fff;
+  border: 1px solid #e8e2de;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+}
+
+.training-empty > svg {
+  color: var(--accent-dark);
+  font-size: 32px;
+}
+
+.training-empty h3 {
+  margin: 13px 0 5px;
+  color: var(--primary);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.training-empty p {
+  max-width: 400px;
+  margin: 0 0 19px;
+  color: #958981;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.training-empty button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 13px;
+  border: none;
+  border-radius: 7px;
+  background: var(--accent);
+  color: #fff;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+.training-empty button:hover {
+  background: var(--accent-dark);
+  transform: translateY(-1px);
+}
+
+/* =========================================================
+   BOOKINGS SECTION
+   ========================================================= */
+
+.admin-bookings-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  background: #fff;
+  border: 1px solid #e8e2de;
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-bookings-table {
+  min-width: 1050px;
+}
+
+/* =========================================================
+   BOOKINGS GRID
+   ========================================================= */
+
+.admin-bookings-head,
+.admin-booking-row {
+  display: grid;
+  grid-template-columns:
+    1.4fr
+    1.35fr
+    1.2fr
+    0.75fr
+    0.65fr
+    0.9fr
+    0.45fr;
+  align-items: center;
+  column-gap: 14px;
+}
+
+.admin-bookings-head {
+  padding: 13px 18px;
+  background: #f8f5f2;
+  border-bottom: 1px solid #e8e2de;
+  color: #81736b;
+  font-size: 8px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.admin-booking-row {
+  padding: 16px 18px;
+  border-bottom: 1px solid #eee8e4;
+  transition: background 0.18s ease;
+}
+
+.admin-booking-row:hover {
+  background: #fdfbf9;
+}
+
+.admin-booking-row:last-child {
+  border-bottom: none;
+}
+
+/* =========================================================
+   BOOKING CUSTOMER
+   ========================================================= */
+
+.admin-booking-customer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-booking-customer strong {
+  overflow: hidden;
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.admin-booking-customer small {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  color: #958981;
+  font-size: 8px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.admin-booking-customer svg {
+  flex-shrink: 0;
+  color: var(--accent-dark);
+  font-size: 10px;
+}
+
+/* =========================================================
+   BOOKING TRAINING
+   ========================================================= */
+
+.admin-booking-training {
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+/* =========================================================
+   BOOKING SCHEDULE
+   ========================================================= */
+
+.admin-booking-schedule {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.admin-booking-schedule span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #81736b;
+  font-size: 8px;
+}
+
+.admin-booking-schedule svg {
+  flex-shrink: 0;
+  color: var(--accent-dark);
+  font-size: 10px;
+}
+
+/* =========================================================
+   LEVEL
+   ========================================================= */
+
+.training-level-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 5px 8px;
+  border: 1px solid #e8dfda;
+  border-radius: 6px;
+  background: #f5f0ed;
+  color: #796a62;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+/* =========================================================
+   BOOKING PRICE
+   ========================================================= */
+
+.admin-booking-price {
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* =========================================================
+   BOOKING STATUS
+   ========================================================= */
+
+.admin-booking-status {
+  width: 100%;
+  min-height: 30px;
+  padding: 0 7px;
+  border: 1px solid #e2d9d3;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 8px;
+  font-weight: 800;
+  outline: none;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.admin-booking-status:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(216, 137, 74, 0.08);
+}
+
+.admin-booking-status.pending {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.admin-booking-status.confirmed {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.admin-booking-status.completed {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.admin-booking-status.cancelled {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* =========================================================
+   DELETE BOOKING
+   ========================================================= */
+
+.admin-delete-booking {
+  width: 29px;
+  height: 29px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #f5dada;
+  border-radius: 6px;
+  background: #fef2f2;
+  color: #b91c1c;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.admin-delete-booking:hover {
+  background: #fee2e2;
+  border-color: #efc3c3;
+  transform: translateY(-1px);
+}
+
+/* =========================================================
+   MODAL OVERLAY
+   ========================================================= */
+
+.training-admin-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(35, 22, 16, 0.62);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+/* =========================================================
+   MODAL
+   ========================================================= */
+
+.training-admin-modal {
+  width: min(650px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 14px;
+  box-shadow:
+    0 30px 90px rgba(30, 18, 12, 0.28),
+    0 8px 30px rgba(30, 18, 12, 0.12);
+  animation: trainingModalIn 0.22s ease both;
+}
+
+@keyframes trainingModalIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* =========================================================
+   MODAL HEADER
+   ========================================================= */
+
+.training-admin-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 23px 24px;
+  border-bottom: 1px solid #eee8e4;
+  background: #fff;
+}
+
+.training-admin-modal-header > div {
+  min-width: 0;
+}
+
+.training-admin-modal-header span {
+  display: inline-block;
+  color: var(--accent-dark);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+}
+
+.training-admin-modal-header h2 {
+  margin: 5px 0 0;
+  color: var(--primary);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.training-admin-modal-header > button {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e5ddd8;
+  border-radius: 7px;
+  background: #f6f2ef;
+  color: #6f625b;
+  font-size: 17px;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.training-admin-modal-header > button:hover {
+  background: #eee7e2;
+  color: var(--primary);
+  transform: rotate(3deg);
+}
+
+/* =========================================================
+   FORM
+   ========================================================= */
+
+.training-admin-form {
+  padding: 24px;
+}
+
+.training-form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.training-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 17px;
+}
+
+.training-form-group label {
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.training-form-group input,
+.training-form-group select,
+.training-form-group textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 12px;
+  border: 1px solid #e2d9d3;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--primary);
+  font-family: inherit;
+  font-size: 11px;
+  outline: none;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.training-form-group input:hover,
+.training-form-group select:hover,
+.training-form-group textarea:hover {
+  border-color: #d7ccc5;
+}
+
+.training-form-group input:focus,
+.training-form-group select:focus,
+.training-form-group textarea:focus {
+  border-color: var(--accent);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(216, 137, 74, 0.10);
+}
+
+.training-form-group input::placeholder,
+.training-form-group textarea::placeholder {
+  color: #aaa09a;
+}
+
+.training-form-group textarea {
+  min-height: 105px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+/* =========================================================
+   FORM ACTIONS
+   ========================================================= */
+
+.training-admin-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  padding-top: 5px;
+}
+
+.training-cancel-button,
+.training-save-button {
+  min-height: 37px;
+  padding: 0 15px;
+  border-radius: 7px;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.training-cancel-button {
+  border: 1px solid #e2d9d3;
+  background: #fff;
+  color: #756861;
+}
+
+.training-cancel-button:hover {
+  background: #f8f5f2;
+  border-color: #d8cec7;
+}
+
+.training-save-button {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 5px 15px rgba(43, 26, 18, 0.10);
+}
+
+.training-save-button:hover {
+  background: var(--accent-dark);
+  border-color: var(--accent-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 7px 19px rgba(43, 26, 18, 0.13);
+}
+
+/* =========================================================
+   MODAL SCROLLBAR
+   ========================================================= */
+
+.training-admin-modal::-webkit-scrollbar,
+.admin-bookings-wrapper::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.training-admin-modal::-webkit-scrollbar-track,
+.admin-bookings-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.training-admin-modal::-webkit-scrollbar-thumb,
+.admin-bookings-wrapper::-webkit-scrollbar-thumb {
+  background: #d8cec7;
+  border-radius: 20px;
+}
+
+.training-admin-modal::-webkit-scrollbar-thumb:hover,
+.admin-bookings-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #bfb3aa;
+}
+
+/* =========================================================
+   RESPONSIVE — TABLET
+   ========================================================= */
+
+@media (max-width: 1100px) {
+  .admin-training-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* =========================================================
+   RESPONSIVE — SMALL TABLET
+   ========================================================= */
+
+@media (max-width: 800px) {
+  .admin-training-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .add-training-button {
+    width: 100%;
+  }
+
+  .training-admin-tabs {
+    display: flex;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .training-admin-tabs button {
+    flex: 1;
+  }
+}
+
+/* =========================================================
+   RESPONSIVE — MOBILE
+   ========================================================= */
+
+@media (max-width: 650px) {
+  .admin-training-header {
+    margin-bottom: 20px;
+  }
+
+  .admin-training-header h1 {
+    font-size: 25px;
+  }
+
+  .admin-training-header p {
+    font-size: 12px;
+  }
+
+  .admin-training-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .admin-training-card {
+    padding: 18px;
+  }
+
+  .training-admin-tabs {
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+
+  .training-admin-tabs button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .training-form-row {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .training-admin-modal-overlay {
+    align-items: flex-end;
+    padding: 10px;
+  }
+
+  .training-admin-modal {
+    width: 100%;
+    max-height: 94vh;
+    border-radius: 13px;
+  }
+
+  .training-admin-modal-header,
+  .training-admin-form {
+    padding: 18px;
+  }
+
+  .training-admin-form-actions {
+    flex-direction: column-reverse;
+  }
+
+  .training-cancel-button,
+  .training-save-button {
+    width: 100%;
+  }
+
+  .training-empty {
+    min-height: 220px;
+  }
+}
+
+/* =========================================================
+   VERY SMALL MOBILE
+   ========================================================= */
+
+@media (max-width: 420px) {
+  .admin-training-header h1 {
+    font-size: 23px;
+  }
+
+  .admin-training-card {
+    padding: 16px;
+  }
+
+  .admin-training-bottom strong {
+    font-size: 16px;
+  }
+
+  .admin-training-info {
+    gap: 8px 11px;
+  }
+
+  .training-admin-modal-overlay {
+    padding: 6px;
+  }
+}
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-training-card,
+  .add-training-button,
+  .admin-training-bottom button,
+  .training-save-button,
+  .training-cancel-button {
+    transition: none;
+  }
+
+  .training-admin-modal {
+    animation: none;
+  }
+}

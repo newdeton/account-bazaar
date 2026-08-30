@@ -1,0 +1,502 @@
+.training-page {
+  min-height: 100vh;
+  background: #f8f5f2;
+}
+
+/* HERO */
+
+.training-hero {
+  padding: 90px 0;
+
+  background: var(--primary);
+  color: #fff;
+
+  text-align: center;
+}
+
+.training-label {
+  color: var(--accent-light);
+
+  font-size: 10px;
+  font-weight: 800;
+
+  letter-spacing: 1.5px;
+}
+
+.training-hero h1 {
+  margin: 12px 0;
+
+  font-size: clamp(38px, 6vw, 60px);
+  line-height: 1.1;
+}
+
+.training-hero h1 span {
+  color: var(--accent-light);
+}
+
+.training-hero p {
+  max-width: 650px;
+
+  margin: 0 auto;
+
+  color: #eadfd8;
+
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+/* PROGRAMS */
+
+.training-programs {
+  padding: 70px 0;
+}
+
+.training-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+
+  gap: 30px;
+
+  margin-bottom: 30px;
+}
+
+.training-section-heading span {
+  color: var(--accent-dark);
+
+  font-size: 10px;
+  font-weight: 800;
+
+  letter-spacing: 1.2px;
+}
+
+.training-section-heading h2 {
+  margin: 6px 0 0;
+
+  color: var(--primary);
+
+  font-size: 30px;
+}
+
+.training-section-heading p {
+  margin: 0;
+
+  color: #81736b;
+
+  font-size: 13px;
+}
+
+/* GRID */
+
+.training-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
+
+  gap: 20px;
+}
+
+.training-card {
+  padding: 22px;
+
+  background: #fff;
+
+  border: 1px solid #e8e2de;
+  border-radius: 12px;
+
+  box-shadow: var(--shadow-sm);
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.training-card:hover {
+  transform: translateY(-4px);
+
+  box-shadow: var(--shadow-md);
+}
+
+.training-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 20px;
+}
+
+.training-icon {
+  width: 44px;
+  height: 44px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 9px;
+
+  background: #f2e8e2;
+
+  color: var(--accent-dark);
+
+  font-size: 20px;
+}
+
+.training-category {
+  padding: 5px 8px;
+
+  background: #f4efec;
+
+  border-radius: 5px;
+
+  color: #796a62;
+
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.training-card h3 {
+  margin: 0 0 10px;
+
+  color: var(--primary);
+
+  font-size: 17px;
+
+  line-height: 1.35;
+}
+
+.training-card > p {
+  min-height: 78px;
+
+  margin: 0 0 18px;
+
+  color: #81736b;
+
+  font-size: 12px;
+
+  line-height: 1.7;
+}
+
+.training-meta {
+  display: flex;
+  flex-wrap: wrap;
+
+  gap: 12px;
+
+  padding-bottom: 18px;
+
+  border-bottom: 1px solid #eee8e4;
+}
+
+.training-meta span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+
+  color: #8b7d75;
+
+  font-size: 10px;
+}
+
+.training-meta svg {
+  color: var(--accent-dark);
+
+  font-size: 13px;
+}
+
+.training-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 10px;
+
+  padding-top: 18px;
+}
+
+.training-price {
+  display: flex;
+  flex-direction: column;
+}
+
+.training-price small {
+  color: #958981;
+
+  font-size: 9px;
+}
+
+.training-price strong {
+  color: var(--primary);
+
+  font-size: 20px;
+}
+
+.training-bottom button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  padding: 9px 11px;
+
+  border: none;
+  border-radius: 7px;
+
+  background: var(--accent);
+
+  color: #fff;
+
+  font-family: inherit;
+
+  font-size: 10px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition: background 0.2s ease;
+}
+
+.training-bottom button:hover {
+  background: var(--accent-dark);
+}
+
+/* BOOKING MODAL */
+
+.training-modal-overlay {
+  position: fixed;
+  inset: 0;
+
+  z-index: 3000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 20px;
+
+  background: rgba(43, 26, 18, 0.6);
+}
+
+.training-booking-modal {
+  width: min(650px, 100%);
+  max-height: 90vh;
+
+  overflow-y: auto;
+
+  background: #fff;
+
+  border-radius: 12px;
+
+  box-shadow: 0 20px 60px rgba(43, 26, 18, 0.25);
+}
+
+.training-modal-header {
+  display: flex;
+  justify-content: space-between;
+
+  padding: 24px;
+
+  border-bottom: 1px solid #eee8e4;
+}
+
+.training-modal-header span {
+  color: var(--accent-dark);
+
+  font-size: 9px;
+  font-weight: 800;
+
+  letter-spacing: 1px;
+}
+
+.training-modal-header h2 {
+  margin: 5px 0;
+
+  color: var(--primary);
+
+  font-size: 21px;
+}
+
+.training-modal-header p {
+  margin: 0;
+
+  color: #958981;
+
+  font-size: 11px;
+}
+
+.training-modal-header > button {
+  width: 34px;
+  height: 34px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: none;
+  border-radius: 6px;
+
+  background: #f5f1ef;
+
+  color: var(--primary);
+
+  font-size: 17px;
+
+  cursor: pointer;
+}
+
+.training-booking-form {
+  padding: 24px;
+}
+
+.training-form-row {
+  display: grid;
+
+  grid-template-columns: 1fr 1fr;
+
+  gap: 15px;
+}
+
+.training-form-group {
+  display: flex;
+  flex-direction: column;
+
+  gap: 7px;
+
+  margin-bottom: 17px;
+}
+
+.training-form-group label {
+  color: var(--primary);
+
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.training-form-group input,
+.training-form-group select,
+.training-form-group textarea {
+  width: 100%;
+
+  padding: 11px 12px;
+
+  border: 1px solid #e2d9d3;
+
+  border-radius: 7px;
+
+  background: #fff;
+
+  color: var(--primary);
+
+  font-family: inherit;
+
+  font-size: 12px;
+
+  outline: none;
+}
+
+.training-form-group input:focus,
+.training-form-group select:focus,
+.training-form-group textarea:focus {
+  border-color: var(--accent);
+}
+
+.training-form-group textarea {
+  resize: vertical;
+
+  line-height: 1.5;
+}
+
+.training-booking-actions {
+  display: flex;
+  justify-content: flex-end;
+
+  gap: 10px;
+
+  padding-top: 5px;
+}
+
+.training-cancel,
+.training-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 6px;
+
+  padding: 10px 16px;
+
+  border-radius: 7px;
+
+  font-family: inherit;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.training-cancel {
+  border: 1px solid #e2d9d3;
+
+  background: #fff;
+
+  color: #756861;
+}
+
+.training-submit {
+  border: none;
+
+  background: var(--accent);
+
+  color: #fff;
+}
+
+.training-submit:hover {
+  background: var(--accent-dark);
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 1050px) {
+  .training-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .training-section-heading {
+    align-items: flex-start;
+
+    flex-direction: column;
+
+    gap: 8px;
+  }
+
+  .training-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .training-form-row {
+    grid-template-columns: 1fr;
+
+    gap: 0;
+  }
+
+  .training-hero {
+    padding: 65px 0;
+  }
+}
+
+@media (max-width: 450px) {
+  .training-bottom {
+    align-items: flex-start;
+
+    flex-direction: column;
+  }
+
+  .training-bottom button {
+    width: 100%;
+    justify-content: center;
+  }
+}

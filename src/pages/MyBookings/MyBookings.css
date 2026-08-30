@@ -1,0 +1,307 @@
+.my-bookings-page {
+  min-height: 100vh;
+  background: #f8f5f2;
+}
+
+.my-bookings-header {
+  padding: 65px 0;
+
+  background: var(--primary);
+  color: #fff;
+}
+
+.my-bookings-header span {
+  color: var(--accent-light);
+
+  font-size: 10px;
+  font-weight: 800;
+
+  letter-spacing: 1.4px;
+}
+
+.my-bookings-header h1 {
+  margin: 7px 0;
+
+  font-size: 38px;
+}
+
+.my-bookings-header p {
+  margin: 0;
+
+  color: #eadfd8;
+
+  font-size: 13px;
+}
+
+.my-bookings-content {
+  padding: 55px 0 80px;
+}
+
+.booking-list {
+  max-width: 950px;
+  margin: 0 auto;
+}
+
+.booking-list-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+
+  margin-bottom: 22px;
+}
+
+.booking-list-heading span {
+  color: var(--accent-dark);
+
+  font-size: 9px;
+  font-weight: 800;
+
+  letter-spacing: 1.2px;
+}
+
+.booking-list-heading h2 {
+  margin: 5px 0 0;
+
+  color: var(--primary);
+
+  font-size: 25px;
+}
+
+.booking-list-heading > strong {
+  color: #8b7d75;
+
+  font-size: 12px;
+}
+
+.booking-card {
+  display: flex;
+  align-items: center;
+
+  gap: 18px;
+
+  padding: 20px;
+
+  margin-bottom: 14px;
+
+  background: #fff;
+
+  border: 1px solid #e8e2de;
+  border-radius: 10px;
+
+  box-shadow: var(--shadow-sm);
+}
+
+.booking-card-icon {
+  width: 48px;
+  height: 48px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 9px;
+
+  background: #f2e8e2;
+
+  color: var(--accent-dark);
+
+  font-size: 21px;
+}
+
+.booking-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.booking-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.booking-title-row h3 {
+  margin: 0;
+
+  color: var(--primary);
+
+  font-size: 15px;
+}
+
+.booking-status {
+  padding: 4px 8px;
+
+  border-radius: 5px;
+
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.booking-status.pending {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.booking-status.confirmed {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.booking-status.completed {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.booking-status.cancelled {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.booking-details {
+  display: flex;
+  flex-wrap: wrap;
+
+  gap: 16px;
+
+  margin-top: 9px;
+}
+
+.booking-details span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+
+  color: #81736b;
+
+  font-size: 10px;
+}
+
+.booking-details svg {
+  color: var(--accent-dark);
+
+  font-size: 13px;
+}
+
+.booking-main p {
+  margin: 8px 0 0;
+
+  color: #aaa09a;
+
+  font-size: 9px;
+}
+
+.booking-price {
+  display: flex;
+  flex-direction: column;
+
+  align-items: flex-end;
+
+  min-width: 90px;
+}
+
+.booking-price small {
+  color: #958981;
+
+  font-size: 9px;
+}
+
+.booking-price strong {
+  margin-top: 2px;
+
+  color: var(--primary);
+
+  font-size: 19px;
+}
+
+.no-bookings {
+  max-width: 500px;
+
+  margin: 40px auto;
+
+  padding: 50px 30px;
+
+  background: #fff;
+
+  border: 1px solid #e8e2de;
+  border-radius: 12px;
+
+  text-align: center;
+}
+
+.no-bookings-icon {
+  width: 58px;
+  height: 58px;
+
+  margin: 0 auto 15px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: #f2e8e2;
+
+  color: var(--accent-dark);
+
+  font-size: 25px;
+}
+
+.no-bookings h2 {
+  margin: 0 0 7px;
+
+  color: var(--primary);
+
+  font-size: 21px;
+}
+
+.no-bookings p {
+  margin: 0 0 20px;
+
+  color: #8b7d75;
+
+  font-size: 12px;
+}
+
+.no-bookings a {
+  display: inline-flex;
+
+  padding: 10px 16px;
+
+  border-radius: 7px;
+
+  background: var(--accent);
+
+  color: #fff;
+
+  font-size: 11px;
+  font-weight: 700;
+}
+
+@media (max-width: 650px) {
+  .booking-card {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .booking-price {
+    width: 100%;
+
+    align-items: flex-start;
+
+    padding-left: 66px;
+  }
+
+  .booking-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .booking-list-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+  }
+}

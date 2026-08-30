@@ -1,0 +1,88 @@
+:root {
+  --primary: #3b1f14;
+  --primary-dark: #28130d;
+  --primary-light: #5a3020;
+
+  --accent: #d8894a;
+  --accent-light: #e3a873;
+  --accent-dark: #b96c35;
+
+  --background: #f8f5f2;
+  --surface: #ffffff;
+  --surface-soft: #f1ebe6;
+
+  --text: #2b1a12;
+  --text-light: #6b5145;
+  --text-muted: #8c7569;
+
+  --border: #e4d9d1;
+
+  --success: #28734a;
+  --danger: #b43d3d;
+
+  --shadow-sm: 0 2px 8px rgba(59, 31, 20, 0.08);
+  --shadow-md: 0 8px 24px rgba(59, 31, 20, 0.12);
+  --shadow-lg: 0 16px 40px rgba(59, 31, 20, 0.16);
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--background);
+}
+
+.main-content {
+  flex: 1;
+  min-height: 60vh;
+}
+
+.page-section {
+  padding: 80px 0;
+}
+
+.page-header {
+  background: var(--primary);
+  color: #fff;
+  padding: 70px 0;
+  text-align: center;
+}
+
+.page-header h1 {
+  font-size: clamp(32px, 5vw, 52px);
+  line-height: 1.1;
+  margin-bottom: 15px;
+}
+
+.page-header p {
+  max-width: 650px;
+  margin: 0 auto;
+  color: #dbcac0;
+  font-size: 17px;
+}
+
+.section-heading {
+  margin-bottom: 40px;
+}
+
+.section-heading h2 {
+  color: var(--text);
+  font-size: clamp(28px, 4vw, 38px);
+  line-height: 1.2;
+  margin-bottom: 10px;
+}
+
+.section-heading p {
+  color: var(--text-light);
+  max-width: 650px;
+}
+
+@media (max-width: 768px) {
+  .page-section {
+    padding: 60px 0;
+  }
+
+  .page-header {
+    padding: 55px 0;
+  }
+}

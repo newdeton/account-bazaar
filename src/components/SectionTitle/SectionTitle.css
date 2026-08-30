@@ -1,0 +1,43 @@
+.section-title {
+  margin-bottom: 40px;
+}
+
+.section-title > span {
+  display: block;
+
+  margin-bottom: 8px;
+
+  color: var(--accent-dark);
+
+  font-size: 12px;
+  font-weight: 800;
+
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.section-title h2 {
+  color: var(--primary);
+
+  font-size: clamp(28px, 4vw, 38px);
+  line-height: 1.2;
+
+  margin-bottom: 10px;
+}
+
+.section-title p {
+  max-width: 650px;
+
+  color: var(--text-light);
+
+  font-size: 15px;
+}
+
+.section-title.centered {
+  text-align: center;
+}
+
+.section-title.centered p {
+  margin-left: auto;
+  margin-right: auto;
+}
