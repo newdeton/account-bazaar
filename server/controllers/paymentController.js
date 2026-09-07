@@ -1,13 +1,9 @@
 import Product from "../models/Product.js";
-import Order from "../models/order.js";
+import Order from "../models/Order.js";
 
 /* =========================================================
    CONFIGURATION
 ========================================================= */
-
-const API_URL =
-  process.env.FLW_API_URL ||
-  "https://api.flutterwave.com/v3";
 
 const USD_TO_KES_RATE = Number(
   process.env.USD_TO_KES_RATE || 129
@@ -16,87 +12,29 @@ const USD_TO_KES_RATE = Number(
 const PAYMENT_CURRENCY = "KES";
 
 /* =========================================================
-   FLUTTERWAVE SECRET KEY
-========================================================= */
-
-const getFlutterwaveSecretKey = () => {
-  const key = process.env.FLW_SECRET_KEY;
-
-  if (!key) {
-    throw new Error(
-      "FLW_SECRET_KEY is not configured in server/.env"
-    );
-  }
-
-  return key;
-};
-
-/* =========================================================
-   FLUTTERWAVE REQUEST
-========================================================= */
-
-const flutterwaveRequest = async (
-  endpoint,
-  options = {}
-) => {
-  const secretKey =
-    getFlutterwaveSecretKey();
-
-  const response = await fetch(
-    `${API_URL}${endpoint}`,
-    {
-      ...options,
-
-      headers: {
-        Authorization: `Bearer ${secretKey}`,
-
-        "Content-Type":
-          "application/json",
-
-        ...(options.headers || {}),
-      },
-    }
-  );
-
-  const data =
-    await response.json();
-
-  if (!response.ok) {
-    const message =
-      data?.message ||
-      "Flutterwave API request failed.";
-
-    const error =
-      new Error(message);
-
-    error.response = {
-      data,
-      status: response.status,
-    };
-
-    throw error;
-  }
-
-  return data;
-};
-
-/* =========================================================
-   GENERATE TRANSACTION REFERENCE
-========================================================= */
-
-const generateReference = () => {
-  return `AB-${Date.now()}-${Math.random()
-    .toString(36)
-    .substring(2, 10)
-    .toUpperCase()}`;
-};
-
-/* =========================================================
    GENERATE ORDER ID
 ========================================================= */
 
 const generateOrderId = () => {
   return `ORD-${Date.now()}-${Math.random()
+    .toString(36)
+    .substring(2, 8)
+    .toUpperCase()}`;
+};
+
+/* =========================================================
+   GENERATE PAYMENT REFERENCE
+=========================================================
+
+   This is no longer a Flutterwave transaction reference.
+
+   It is simply an internal reference that can be used to
+   identify the manual payment associated with the order.
+
+========================================================= */
+
+const generatePaymentReference = () => {
+  return `MAN-${Date.now()}-${Math.random()
     .toString(36)
     .substring(2, 8)
     .toUpperCase()}`;
@@ -113,6 +51,16 @@ const isMongoObjectId = (value) => {
 };
 
 /* =========================================================
+   NORMALIZE CUSTOMER ID
+========================================================= */
+
+const normalizeCustomerId = (value) => {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+};
+
+/* =========================================================
    FIND PRODUCT
 ========================================================= */
 
@@ -121,8 +69,7 @@ const findProduct = async (id) => {
     return null;
   }
 
-  const value =
-    String(id).trim();
+  const value = String(id).trim();
 
   /* MongoDB _id */
 
@@ -142,15 +89,137 @@ const findProduct = async (id) => {
 };
 
 /* =========================================================
-   CREATE PAYMENT
+   SAFE ORDER RESPONSE
+========================================================= */
+
+const formatOrder = (order) => {
+  if (!order) {
+    return null;
+  }
+
+  return {
+    id: order._id,
+
+    orderId: order.orderId,
+
+    customerId: order.customerId,
+
+    customer: {
+      name:
+        order.customer?.name || "",
+
+      email:
+        order.customer?.email || "",
+
+      phone:
+        order.customer?.phone || "",
+    },
+
+    items: Array.isArray(order.items)
+      ? order.items
+      : [],
+
+    totalUSD:
+      Number(order.totalUSD || 0),
+
+    totalKES:
+      Number(order.totalKES || 0),
+
+    currency:
+      order.currency || PAYMENT_CURRENCY,
+
+    exchangeRate:
+      Number(
+        order.exchangeRate ||
+          USD_TO_KES_RATE
+      ),
+
+    payment: {
+      provider:
+        order.payment?.provider ||
+        "manual",
+
+      txRef:
+        order.payment?.txRef || "",
+
+      status:
+        order.payment?.status ||
+        "pending",
+
+      transactionId:
+        order.payment?.transactionId ||
+        "",
+
+      method:
+        order.payment?.method ||
+        "",
+
+      paidAt:
+        order.payment?.paidAt || null,
+
+      confirmedBy:
+        order.payment?.confirmedBy ||
+        "",
+
+      confirmedAt:
+        order.payment?.confirmedAt ||
+        null,
+    },
+
+    paymentStatus:
+      order.payment?.status ||
+      "pending",
+
+    status:
+      order.status || "pending",
+
+    stockProcessed:
+      Boolean(order.stockProcessed),
+
+    createdAt:
+      order.createdAt || null,
+
+    updatedAt:
+      order.updatedAt || null,
+
+    purchasedAt:
+      order.purchasedAt ||
+      order.createdAt ||
+      null,
+  };
+};
+
+/* =========================================================
+   CREATE ORDER
+=========================================================
+
+   POST /api/payments/create
+
+   NEW FLOW:
+
+   Customer submits checkout
+          ↓
+   Validate customer/cart
+          ↓
+   Verify products/prices/stock
+          ↓
+   Create MongoDB order
+          ↓
+   payment.status = pending
+          ↓
+   order.status = pending
+          ↓
+   Return order information
+
+   IMPORTANT:
+   No Flutterwave request is made here.
+
 ========================================================= */
 
 export const createPayment = async (
   req,
   res
 ) => {
-  let createdOrder = null;
-
   try {
     const {
       items,
@@ -190,7 +259,7 @@ export const createPayment = async (
       return res.status(400).json({
         success: false,
         message:
-          "Only product payments are currently supported.",
+          "Only product orders are currently supported.",
       });
     }
 
@@ -285,7 +354,7 @@ export const createPayment = async (
     }
 
     /* =====================================================
-       BUILD ORDER
+       BUILD ORDER ITEMS
     ===================================================== */
 
     const orderItems = [];
@@ -305,6 +374,12 @@ export const createPayment = async (
 
       /* ===================================================
          STOCK CHECK
+
+         We still check stock when the order is created.
+
+         However, we DO NOT deduct stock yet.
+
+         Stock is deducted when the admin confirms payment.
       =================================================== */
 
       if (
@@ -355,7 +430,10 @@ export const createPayment = async (
         subtotalUSD;
 
       /* ===================================================
-         SNAPSHOT
+         PRODUCT SNAPSHOT
+
+         Store the product information as it existed
+         when the order was submitted.
       =================================================== */
 
       orderItems.push({
@@ -374,13 +452,39 @@ export const createPayment = async (
           item.quantity,
 
         subtotalUSD,
+
+        image:
+          product.image ||
+          product.imageUrl ||
+          "",
+
+        category:
+          product.category ||
+          "Marketplace",
       });
     }
+
+    /* =====================================================
+       TOTAL USD
+    ===================================================== */
 
     totalUSD =
       Number(
         totalUSD.toFixed(2)
       );
+
+    if (
+      !Number.isFinite(
+        totalUSD
+      ) ||
+      totalUSD <= 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid order total.",
+      });
+    }
 
     /* =====================================================
        CONVERT USD → KES
@@ -403,7 +507,7 @@ export const createPayment = async (
       return res.status(400).json({
         success: false,
         message:
-          "Invalid payment amount.",
+          "Invalid order amount.",
       });
     }
 
@@ -414,26 +518,30 @@ export const createPayment = async (
     const orderId =
       generateOrderId();
 
-    const txRef =
-      generateReference();
+    const paymentReference =
+      generatePaymentReference();
 
     /* =====================================================
-       CREATE PENDING ORDER
+       CREATE ORDER
     ===================================================== */
 
-    createdOrder =
+    const order =
       await Order.create({
         orderId,
 
         customerId:
-          customer.customerId,
+          String(
+            customer.customerId
+          ).trim(),
 
         customer: {
           name:
             customer.name.trim(),
 
           email:
-            customer.email.trim(),
+            customer.email
+              .trim()
+              .toLowerCase(),
 
           phone:
             customer.phone?.trim() ||
@@ -455,12 +563,28 @@ export const createPayment = async (
 
         payment: {
           provider:
-            "flutterwave",
+            "manual",
 
-          txRef,
+          txRef:
+            paymentReference,
 
           status:
             "pending",
+
+          transactionId:
+            "",
+
+          method:
+            "",
+
+          paidAt:
+            null,
+
+          confirmedBy:
+            "",
+
+          confirmedAt:
+            null,
         },
 
         status:
@@ -468,593 +592,686 @@ export const createPayment = async (
 
         stockProcessed:
           false,
+
+        purchasedAt:
+          new Date(),
       });
 
     /* =====================================================
-       FLUTTERWAVE CHECKOUT
-    ===================================================== */
-
-    const checkout =
-      await flutterwaveRequest(
-        "/payments",
-        {
-          method: "POST",
-
-          body: JSON.stringify({
-            tx_ref:
-              txRef,
-
-            amount:
-              totalKES,
-
-            currency:
-              PAYMENT_CURRENCY,
-
-            redirect_url:
-              process.env.PAYMENT_SUCCESS_URL,
-
-            customer: {
-              email:
-                customer.email.trim(),
-
-              name:
-                customer.name.trim(),
-
-              phonenumber:
-                customer.phone?.trim() ||
-                undefined,
-            },
-
-            customizations: {
-              title:
-                "Account Bazaar",
-
-              description:
-                `Order ${orderId} - $${totalUSD.toFixed(
-                  2
-                )} USD`,
-
-              logo:
-                process.env.FLW_LOGO_URL ||
-                undefined,
-            },
-
-            meta: {
-              orderId,
-
-              customerId:
-                customer.customerId,
-
-              usdAmount:
-                totalUSD,
-
-              kesAmount:
-                totalKES,
-
-              exchangeRate:
-                USD_TO_KES_RATE,
-            },
-          }),
-        }
-      );
-
-    /* =====================================================
-       CHECK CHECKOUT RESPONSE
-    ===================================================== */
-
-    if (
-      !checkout ||
-      checkout.status !==
-        "success" ||
-      !checkout.data?.link
-    ) {
-      await Order.findByIdAndUpdate(
-        createdOrder._id,
-        {
-          $set: {
-            status:
-              "failed",
-
-            "payment.status":
-              "failed",
-          },
-        }
-      );
-
-      throw new Error(
-        checkout?.message ||
-          "Flutterwave did not return a checkout URL."
-      );
-    }
-
-    /* =====================================================
        SUCCESS
+
+       The order now exists in MongoDB.
+
+       Payment is NOT processed online.
     ===================================================== */
 
-    return res.status(200).json({
+    return res.status(201).json({
       success: true,
+
+      message:
+        "Order submitted successfully. Online payment is temporarily unavailable. Please contact admin to arrange payment.",
+
+      order: formatOrder(
+        order
+      ),
 
       payment: {
         orderId,
 
-        txRef,
+        reference:
+          paymentReference,
 
-        currency:
-          PAYMENT_CURRENCY,
+        status:
+          "pending",
 
-        usdAmount:
-          totalUSD,
-
-        kesAmount:
-          totalKES,
-
-        exchangeRate:
-          USD_TO_KES_RATE,
-
-        checkoutUrl:
-          checkout.data.link,
+        message:
+          "Online payment is temporarily unavailable. Please contact admin.",
       },
     });
   } catch (error) {
     console.error(
-      "Create payment error:"
+      "Create order error:",
+      error
     );
-
-    console.error(
-      error?.response?.data ||
-        error?.message ||
-        error
-    );
-
-    /* =====================================================
-       MARK ORDER FAILED
-    ===================================================== */
-
-    if (createdOrder?._id) {
-      try {
-        await Order.findByIdAndUpdate(
-          createdOrder._id,
-          {
-            $set: {
-              status:
-                "failed",
-
-              "payment.status":
-                "failed",
-            },
-          }
-        );
-      } catch (updateError) {
-        console.error(
-          "Failed to update failed order:",
-          updateError
-        );
-      }
-    }
 
     return res.status(500).json({
       success: false,
 
       message:
         error?.message ||
-        "Unable to initialize payment.",
+        "Unable to create your order.",
     });
   }
 };
 
 /* =========================================================
-   VERIFY PAYMENT
+   GET ALL ORDERS
+=========================================================
+
+   GET /api/payments/orders
+
+   Used by the admin dashboard.
+
 ========================================================= */
 
-export const verifyPayment = async (
+export const getOrders = async (
   req,
   res
 ) => {
   try {
-    const {
-      transactionId,
-      txRef,
-    } = req.body;
-
-    /* =====================================================
-       VALIDATION
-    ===================================================== */
-
-    if (!transactionId) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Flutterwave transaction ID is required.",
-      });
-    }
-
-    /* =====================================================
-       VERIFY TRANSACTION
-    ===================================================== */
-
-    const verification =
-      await flutterwaveRequest(
-        `/transactions/${encodeURIComponent(
-          transactionId
-        )}/verify`,
-        {
-          method: "GET",
-        }
-      );
-
-    const verificationData =
-      verification?.data;
-
-    if (
-      !verification ||
-      verification.status !==
-        "success" ||
-      !verificationData
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Flutterwave could not verify this transaction.",
-      });
-    }
-
-    /* =====================================================
-       FIND ORDER
-    ===================================================== */
-
-    let order = null;
-
-    const verifiedTxRef =
-      verificationData.tx_ref;
-
-    if (txRef) {
-      order =
-        await Order.findOne({
-          "payment.txRef":
-            txRef,
-        });
-    }
-
-    if (
-      !order &&
-      verifiedTxRef
-    ) {
-      order =
-        await Order.findOne({
-          "payment.txRef":
-            verifiedTxRef,
-        });
-    }
-
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message:
-          "Order associated with this payment could not be found.",
-      });
-    }
-
-    /* =====================================================
-       ALREADY VERIFIED
-    ===================================================== */
-
-    if (
-      order.payment.status ===
-        "successful"
-    ) {
-      return res.status(200).json({
-        success: true,
-
-        message:
-          "Payment has already been verified.",
-
-        order: {
-          orderId:
-            order.orderId,
-
-          customerId:
-            order.customerId,
-
-          totalUSD:
-            order.totalUSD,
-
-          totalKES:
-            order.totalKES,
-
-          currency:
-            order.currency,
-
-          paymentStatus:
-            order.payment.status,
-
-          status:
-            order.status,
-
-          transactionId:
-            order.payment.transactionId,
-        },
-      });
-    }
-
-    /* =====================================================
-       FLUTTERWAVE STATUS
-    ===================================================== */
-
-    const status =
-      String(
-        verificationData.status ||
-          ""
-      ).toLowerCase();
-
-    if (
-      status !==
-      "successful"
-    ) {
-      await Order.findByIdAndUpdate(
-        order._id,
-        {
-          $set: {
-            status:
-              "failed",
-
-            "payment.status":
-              "failed",
-          },
-        }
-      );
-
-      return res.status(400).json({
-        success: false,
-        message:
-          "Payment was not successful.",
-      });
-    }
-
-    /* =====================================================
-       CURRENCY
-    ===================================================== */
-
-    const currency =
-      String(
-        verificationData.currency ||
-          ""
-      ).toUpperCase();
-
-    if (
-      currency !==
-      PAYMENT_CURRENCY
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Payment currency does not match the order.",
-      });
-    }
-
-    /* =====================================================
-       TX REF
-    ===================================================== */
-
-    if (
-      verifiedTxRef !==
-      order.payment.txRef
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Transaction reference does not match the order.",
-      });
-    }
-
-    /* =====================================================
-       AMOUNT
-    ===================================================== */
-
-    const paidAmount =
-      Number(
-        verificationData.amount
-      );
-
-    const expectedAmount =
-      Number(
-        order.totalKES
-      );
-
-    if (
-      !Number.isFinite(
-        paidAmount
-      ) ||
-      paidAmount <
-        expectedAmount
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Payment amount does not match the order total.",
-      });
-    }
-
-    /* =====================================================
-       STOCK CHECK
-    ===================================================== */
-
-    if (
-      !order.stockProcessed
-    ) {
-      for (
-        const item of order.items
-      ) {
-        const product =
-          await Product.findById(
-            item.productId
-          );
-
-        if (!product) {
-          return res.status(409).json({
-            success: false,
-            message:
-              `${item.name} is no longer available.`,
-          });
-        }
-
-        if (
-          !product.isActive
-        ) {
-          return res.status(409).json({
-            success: false,
-            message:
-              `${product.name} is no longer available.`,
-          });
-        }
-
-        if (
-          !product.unlimitedStock &&
-          Number(
-            product.stock || 0
-          ) <
-            Number(
-              item.quantity
-            )
-        ) {
-          return res.status(409).json({
-            success: false,
-            message:
-              `${product.name} no longer has enough stock.`,
-          });
-        }
-      }
-
-      /* ===================================================
-         DEDUCT STOCK
-      =================================================== */
-
-      for (
-        const item of order.items
-      ) {
-        if (!item.productId) {
-          continue;
-        }
-
-        const product =
-          await Product.findById(
-            item.productId
-          );
-
-        if (
-          product &&
-          !product.unlimitedStock
-        ) {
-          product.stock =
-            Math.max(
-              0,
-              Number(
-                product.stock || 0
-              ) -
-                Number(
-                  item.quantity
-                )
-            );
-
-          await product.save();
-        }
-      }
-    }
-
-    /* =====================================================
-       PAYMENT DETAILS
-    ===================================================== */
-
-    const paidAt =
-      verificationData.created_at
-        ? new Date(
-            verificationData.created_at
-          )
-        : new Date();
-
-    order.payment.status =
-      "successful";
-
-    order.payment.transactionId =
-      String(
-        verificationData.id ||
-          transactionId
-      );
-
-    order.payment.flutterwaveRef =
-      verificationData.flw_ref ||
-      "";
-
-    order.payment.method =
-      verificationData.payment_type ||
-      "";
-
-    order.payment.paidAt =
-      paidAt;
-
-    order.status =
-      "paid";
-
-    order.stockProcessed =
-      true;
-
-    await order.save();
-
-    /* =====================================================
-       SUCCESS
-    ===================================================== */
+    const orders =
+      await Order.find({})
+        .sort({
+          createdAt: -1,
+        })
+        .lean();
 
     return res.status(200).json({
       success: true,
 
-      message:
-        "Payment verified successfully.",
+      count:
+        orders.length,
 
-      order: {
-        orderId:
-          order.orderId,
-
-        customerId:
-          order.customerId,
-
-        totalUSD:
-          order.totalUSD,
-
-        totalKES:
-          order.totalKES,
-
-        currency:
-          order.currency,
-
-        paymentStatus:
-          order.payment.status,
-
-        status:
-          order.status,
-
-        transactionId:
-          order.payment.transactionId,
-
-        paidAt:
-          order.payment.paidAt,
-      },
+      orders:
+        orders.map(
+          formatOrder
+        ),
     });
   } catch (error) {
     console.error(
-      "Verify payment error:"
-    );
-
-    console.error(
-      error?.response?.data ||
-        error?.message ||
-        error
+      "Get orders error:",
+      error
     );
 
     return res.status(500).json({
       success: false,
 
       message:
-        error?.message ||
-        "Unable to verify payment.",
+        "Unable to load orders.",
     });
   }
 };
+
+/* =========================================================
+   GET CUSTOMER ORDERS
+=========================================================
+
+   GET /api/payments/orders/customer/:customerId
+
+   Used by My Orders.
+
+========================================================= */
+
+export const getCustomerOrders =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const {
+        customerId,
+      } = req.params;
+
+      if (!customerId) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Customer ID is required.",
+        });
+      }
+
+      const normalizedId =
+        normalizeCustomerId(
+          customerId
+        );
+
+      const orders =
+        await Order.find({
+          customerId:
+            normalizedId,
+        })
+          .sort({
+            createdAt: -1,
+          })
+          .lean();
+
+      /* ===================================================
+         FALLBACK
+
+         Your existing customer IDs may contain different
+         casing. If the exact query returns nothing, fetch
+         and compare normalized values.
+      =================================================== */
+
+      let customerOrders =
+        orders;
+
+      if (
+        customerOrders.length === 0
+      ) {
+        const allOrders =
+          await Order.find({})
+            .sort({
+              createdAt: -1,
+            })
+            .lean();
+
+        customerOrders =
+          allOrders.filter(
+            (order) =>
+              normalizeCustomerId(
+                order.customerId
+              ) ===
+              normalizedId
+          );
+      }
+
+      return res.status(200).json({
+        success: true,
+
+        count:
+          customerOrders.length,
+
+        orders:
+          customerOrders.map(
+            formatOrder
+          ),
+      });
+    } catch (error) {
+      console.error(
+        "Get customer orders error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+
+        message:
+          "Unable to load your orders.",
+      });
+    }
+  };
+
+/* =========================================================
+   GET SINGLE ORDER
+=========================================================
+
+   GET /api/payments/orders/:orderId
+
+========================================================= */
+
+export const getOrder = async (
+  req,
+  res
+) => {
+  try {
+    const {
+      orderId,
+    } = req.params;
+
+    if (!orderId) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Order ID is required.",
+      });
+    }
+
+    const order =
+      await Order.findOne({
+        orderId:
+          String(orderId).trim(),
+      }).lean();
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "Order not found.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+
+      order:
+        formatOrder(order),
+    });
+  } catch (error) {
+    console.error(
+      "Get order error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+
+      message:
+        "Unable to load the order.",
+    });
+  }
+};
+
+/* =========================================================
+   MARK PAYMENT AS PAID
+=========================================================
+
+   PATCH /api/payments/orders/:orderId/payment
+
+   ADMIN ACTION.
+
+   Request body can contain:
+
+   {
+     "method": "M-Pesa",
+     "transactionId": "ABC123",
+     "confirmedBy": "Admin"
+   }
+
+   When payment is confirmed:
+
+   payment.status = successful
+   order.status = paid
+   stock is deducted
+   payment details are saved
+
+========================================================= */
+
+export const markPaymentPaid =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const {
+        orderId,
+      } = req.params;
+
+      const {
+        method = "Manual Payment",
+        transactionId = "",
+        confirmedBy = "Admin",
+      } = req.body;
+
+      if (!orderId) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Order ID is required.",
+        });
+      }
+
+      const order =
+        await Order.findOne({
+          orderId:
+            String(orderId).trim(),
+        });
+
+      if (!order) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "Order not found.",
+        });
+      }
+
+      /* ===================================================
+         ALREADY PAID
+      =================================================== */
+
+      if (
+        String(
+          order.payment?.status ||
+            ""
+        ).toLowerCase() ===
+        "successful"
+      ) {
+        return res.status(200).json({
+          success: true,
+
+          message:
+            "This order has already been marked as paid.",
+
+          order:
+            formatOrder(order),
+        });
+      }
+
+      /* ===================================================
+         STOCK VALIDATION
+
+         Stock must still be available before payment
+         is confirmed.
+      =================================================== */
+
+      if (
+        !order.stockProcessed
+      ) {
+        for (
+          const item of order.items || []
+        ) {
+          if (!item.productId) {
+            continue;
+          }
+
+          const product =
+            await Product.findById(
+              item.productId
+            );
+
+          if (!product) {
+            return res.status(409).json({
+              success: false,
+              message:
+                `${item.name || "A product"} is no longer available.`,
+            });
+          }
+
+          if (
+            !product.isActive
+          ) {
+            return res.status(409).json({
+              success: false,
+              message:
+                `${product.name} is no longer available.`,
+            });
+          }
+
+          if (
+            !product.unlimitedStock &&
+            Number(
+              product.stock || 0
+            ) <
+              Number(
+                item.quantity || 0
+              )
+          ) {
+            return res.status(409).json({
+              success: false,
+              message:
+                `${product.name} no longer has enough stock.`,
+            });
+          }
+        }
+
+        /* =================================================
+           DEDUCT STOCK
+        ================================================= */
+
+        for (
+          const item of order.items || []
+        ) {
+          if (!item.productId) {
+            continue;
+          }
+
+          const product =
+            await Product.findById(
+              item.productId
+            );
+
+          if (
+            product &&
+            !product.unlimitedStock
+          ) {
+            product.stock =
+              Math.max(
+                0,
+                Number(
+                  product.stock || 0
+                ) -
+                  Number(
+                    item.quantity || 0
+                  )
+              );
+
+            await product.save();
+          }
+        }
+
+        order.stockProcessed =
+          true;
+      }
+
+      /* ===================================================
+         PAYMENT DETAILS
+      =================================================== */
+
+      const now =
+        new Date();
+
+      order.payment.status =
+        "successful";
+
+      order.payment.transactionId =
+        String(
+          transactionId || ""
+        ).trim();
+
+      order.payment.method =
+        String(
+          method ||
+            "Manual Payment"
+        ).trim();
+
+      order.payment.paidAt =
+        now;
+
+      order.payment.confirmedBy =
+        String(
+          confirmedBy ||
+            "Admin"
+        ).trim();
+
+      order.payment.confirmedAt =
+        now;
+
+      order.status =
+        "paid";
+
+      await order.save();
+
+      return res.status(200).json({
+        success: true,
+
+        message:
+          "Payment confirmed successfully. Order marked as paid.",
+
+        order:
+          formatOrder(order),
+      });
+    } catch (error) {
+      console.error(
+        "Mark payment paid error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+
+        message:
+          error?.message ||
+          "Unable to confirm payment.",
+      });
+    }
+  };
+
+/* =========================================================
+   UPDATE ORDER STATUS
+=========================================================
+
+   PATCH /api/payments/orders/:orderId/status
+
+   ADMIN ACTION.
+
+   Example:
+
+   {
+     "status": "processing"
+   }
+
+   Supported statuses:
+
+   pending
+   paid
+   processing
+   shipped
+   completed
+   cancelled
+   failed
+
+========================================================= */
+
+export const updateOrderStatus =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const {
+        orderId,
+      } = req.params;
+
+      const {
+        status,
+      } = req.body;
+
+      if (!orderId) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Order ID is required.",
+        });
+      }
+
+      if (!status) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Order status is required.",
+        });
+      }
+
+      const normalizedStatus =
+        String(status)
+          .trim()
+          .toLowerCase();
+
+      const allowedStatuses = [
+        "pending",
+        "paid",
+        "processing",
+        "shipped",
+        "completed",
+        "cancelled",
+        "failed",
+      ];
+
+      if (
+        !allowedStatuses.includes(
+          normalizedStatus
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+
+          message:
+            `Invalid order status. Allowed statuses: ${allowedStatuses.join(
+              ", "
+            )}.`,
+        });
+      }
+
+      const order =
+        await Order.findOne({
+          orderId:
+            String(orderId).trim(),
+        });
+
+      if (!order) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "Order not found.",
+        });
+      }
+
+      /* ===================================================
+         PAYMENT SAFETY
+
+         An order should not normally be changed to paid
+         without payment confirmation.
+      =================================================== */
+
+      if (
+        normalizedStatus ===
+          "paid" &&
+        String(
+          order.payment?.status ||
+            ""
+        ).toLowerCase() !==
+          "successful"
+      ) {
+        return res.status(400).json({
+          success: false,
+
+          message:
+            "Confirm the payment before marking the order as paid.",
+        });
+      }
+
+      order.status =
+        normalizedStatus;
+
+      await order.save();
+
+      return res.status(200).json({
+        success: true,
+
+        message:
+          "Order status updated successfully.",
+
+        order:
+          formatOrder(order),
+      });
+    } catch (error) {
+      console.error(
+        "Update order status error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+
+        message:
+          "Unable to update order status.",
+      });
+    }
+  };
+
+/* =========================================================
+   LEGACY VERIFY PAYMENT
+=========================================================
+
+   Flutterwave is no longer used.
+
+   This endpoint is intentionally retained temporarily so
+   an old frontend request does not crash unexpectedly.
+
+   Once Payment.jsx has been updated, this route can be
+   removed from paymentRoutes.js.
+
+========================================================= */
+
+export const verifyPayment =
+  async (
+    req,
+    res
+  ) => {
+    return res.status(410).json({
+      success: false,
+
+      message:
+        "Online payment verification is temporarily unavailable. Please contact admin to confirm payment.",
+    });
+  };

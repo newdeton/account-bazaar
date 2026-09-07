@@ -4,63 +4,37 @@ import {
   FiCheckCircle,
   FiClock,
   FiPackage,
+  FiRefreshCw,
   FiShoppingBag,
   FiShield,
   FiUser,
 } from "react-icons/fi";
+
 import { Link } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import "./MyOrders.css";
 
 /* =========================================================
-   STORAGE KEYS
+   API CONFIGURATION
+========================================================= */
+
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000";
+
+/* =========================================================
+   STORAGE
 ========================================================= */
 
 const CUSTOMER_STORAGE_KEY =
   "accountBazaarCustomer";
-
-const PURCHASES_STORAGE_KEY =
-  "purchases";
-
-/* =========================================================
-   SAFE JSON READER
-========================================================= */
-
-const readStorageArray = (key) => {
-  try {
-    const saved =
-      localStorage.getItem(key);
-
-    if (!saved) {
-      return [];
-    }
-
-    const parsed =
-      JSON.parse(saved);
-
-    return Array.isArray(parsed)
-      ? parsed
-      : [];
-  } catch (error) {
-    console.error(
-      `Failed to read ${key}:`,
-      error
-    );
-
-    return [];
-  }
-};
-
-/* =========================================================
-   CUSTOMER ID NORMALIZER
-========================================================= */
-
-const normalizeCustomerId = (value) => {
-  return String(value || "")
-    .trim()
-    .toLowerCase();
-};
 
 /* =========================================================
    DATE FORMATTER
@@ -71,8 +45,7 @@ const formatDate = (date) => {
     return "Unknown date";
   }
 
-  const value =
-    new Date(date);
+  const value = new Date(date);
 
   if (
     Number.isNaN(
@@ -101,8 +74,7 @@ const formatTime = (date) => {
     return "";
   }
 
-  const value =
-    new Date(date);
+  const value = new Date(date);
 
   if (
     Number.isNaN(
@@ -129,7 +101,7 @@ const getStatusClass = (
   status
 ) => {
   return String(
-    status || "Pending"
+    status || "pending"
   )
     .toLowerCase()
     .replace(/\s+/g, "-");
@@ -148,20 +120,50 @@ const getStatusIcon = (
 
   if (
     normalized === "completed" ||
-    normalized === "delivered" ||
-    normalized === "complete"
+    normalized === "complete" ||
+    normalized === "delivered"
   ) {
     return <FiCheckCircle />;
   }
 
   if (
     normalized === "processing" ||
-    normalized === "shipped"
+    normalized === "shipped" ||
+    normalized === "paid"
   ) {
     return <FiPackage />;
   }
 
   return <FiClock />;
+};
+
+/* =========================================================
+   PAYMENT STATUS
+========================================================= */
+
+const getPaymentStatus = (
+  order
+) => {
+  const paymentStatus =
+    order?.payment?.status ||
+    order?.paymentStatus ||
+    "pending";
+
+  switch (
+    String(paymentStatus).toLowerCase()
+  ) {
+    case "successful":
+      return "Successful";
+
+    case "failed":
+      return "Failed";
+
+    case "cancelled":
+      return "Cancelled";
+
+    default:
+      return "Pending Payment";
+  }
 };
 
 /* =========================================================
@@ -171,6 +173,21 @@ const getStatusIcon = (
 const getOrderTotal = (
   order
 ) => {
+  /* -------------------------------------------------------
+     New MongoDB order structure
+  ------------------------------------------------------- */
+
+  if (
+    typeof order?.totalUSD ===
+    "number"
+  ) {
+    return order.totalUSD;
+  }
+
+  /* -------------------------------------------------------
+     Fallback for existing legacy orders
+  ------------------------------------------------------- */
+
   const price =
     Number(
       order?.price || 0
@@ -188,6 +205,43 @@ const getOrderTotal = (
 };
 
 /* =========================================================
+   ORDER ITEMS COUNT
+========================================================= */
+
+const getOrderItemsCount = (
+  order
+) => {
+  /* New order structure */
+
+  if (
+    Array.isArray(
+      order?.items
+    )
+  ) {
+    return order.items.reduce(
+      (total, item) =>
+        total +
+        Math.max(
+          1,
+          Number(
+            item?.quantity || 1
+          )
+        ),
+      0
+    );
+  }
+
+  /* Legacy order structure */
+
+  return Math.max(
+    1,
+    Number(
+      order?.quantity || 1
+    )
+  );
+};
+
+/* =========================================================
    MY ORDERS
 ========================================================= */
 
@@ -195,15 +249,24 @@ function MyOrders() {
   const [customer, setCustomer] =
     useState(null);
 
-  const [purchases, setPurchases] =
+  const [orders, setOrders] =
     useState([]);
 
+  const [loading, setLoading] =
+    useState(true);
+
+  const [refreshing, setRefreshing] =
+    useState(false);
+
+  const [error, setError] =
+    useState("");
+
   /* =======================================================
-     LOAD CUSTOMER
+     LOAD CUSTOMER IDENTITY
   ======================================================= */
 
   const loadCustomerIdentity =
-    () => {
+    useCallback(() => {
       try {
         const savedCustomer =
           localStorage.getItem(
@@ -212,20 +275,13 @@ function MyOrders() {
 
         if (!savedCustomer) {
           setCustomer(null);
-          return;
+          return null;
         }
 
         const parsedCustomer =
           JSON.parse(
             savedCustomer
           );
-
-        /*
-         * Customer ID is mandatory.
-         *
-         * We intentionally do NOT use email as an
-         * ownership fallback.
-         */
 
         if (
           parsedCustomer &&
@@ -237,48 +293,181 @@ function MyOrders() {
             parsedCustomer
           );
 
-          return;
+          return parsedCustomer;
         }
 
         setCustomer(null);
-      } catch (error) {
+
+        return null;
+      } catch (identityError) {
         console.error(
           "Failed to load customer identity:",
-          error
+          identityError
         );
 
         setCustomer(null);
+
+        return null;
       }
-    };
+    }, []);
 
   /* =======================================================
-     LOAD PURCHASES
+     CURRENT CUSTOMER ID
   ======================================================= */
 
-  const loadPurchases =
-    () => {
-      const savedPurchases =
-        readStorageArray(
-          PURCHASES_STORAGE_KEY
-        );
-
-      setPurchases(
-        savedPurchases
-      );
-    };
+  const customerId =
+    customer?.customerId || "";
 
   /* =======================================================
-     INITIAL LOAD + SYNC
+     FETCH ORDERS FROM MONGODB
+  ======================================================= */
+
+  const fetchOrders = useCallback(
+    async (
+      showFullLoader = true
+    ) => {
+      if (!customerId) {
+        setOrders([]);
+        setLoading(false);
+        return;
+      }
+
+      if (showFullLoader) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
+
+      setError("");
+
+      try {
+        const response =
+          await fetch(
+            `${API_URL}/api/payments/orders/customer/${encodeURIComponent(
+              customerId
+            )}`
+          );
+
+        let data;
+
+        try {
+          data =
+            await response.json();
+        } catch {
+          throw new Error(
+            "Invalid response received from the order server."
+          );
+        }
+
+        if (
+          !response.ok ||
+          !data.success
+        ) {
+          throw new Error(
+            data.message ||
+              "Unable to load your orders."
+          );
+        }
+
+        setOrders(
+          Array.isArray(
+            data.orders
+          )
+            ? data.orders
+            : []
+        );
+      } catch (fetchError) {
+        console.error(
+          "Failed to fetch customer orders:",
+          fetchError
+        );
+
+        setError(
+          fetchError.message ||
+            "Unable to load your orders. Please try again."
+        );
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [customerId]
+  );
+
+  /* =======================================================
+     INITIAL LOAD
   ======================================================= */
 
   useEffect(() => {
-    loadCustomerIdentity();
-    loadPurchases();
+    const identity =
+      loadCustomerIdentity();
 
+    if (!identity?.customerId) {
+      setLoading(false);
+    }
+  }, [
+    loadCustomerIdentity,
+  ]);
+
+  /* =======================================================
+     LOAD CUSTOMER ORDERS
+  ======================================================= */
+
+  useEffect(() => {
+    if (!customerId) {
+      return;
+    }
+
+    fetchOrders(true);
+  }, [
+    customerId,
+    fetchOrders,
+  ]);
+
+  /* =======================================================
+     REFRESH ORDERS
+
+     This allows the page to reflect an admin payment
+     confirmation without requiring the customer to
+     manually reload the browser.
+  ======================================================= */
+
+  useEffect(() => {
+    if (!customerId) {
+      return undefined;
+    }
+
+    const interval =
+      setInterval(() => {
+        fetchOrders(false);
+      }, 10000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [
+    customerId,
+    fetchOrders,
+  ]);
+
+  /* =======================================================
+     STORAGE SYNC
+
+     If the customer information changes in another tab,
+     refresh the customer identity and orders.
+  ======================================================= */
+
+  useEffect(() => {
     const handleStorageChange =
       () => {
-        loadCustomerIdentity();
-        loadPurchases();
+        const identity =
+          loadCustomerIdentity();
+
+        if (
+          identity?.customerId
+        ) {
+          fetchOrders(false);
+        }
       };
 
     window.addEventListener(
@@ -286,137 +475,47 @@ function MyOrders() {
       handleStorageChange
     );
 
-    /*
-     * LocalStorage does not fire the storage event
-     * in the same browser tab that made the change.
-     *
-     * This small polling interval keeps My Orders
-     * synchronized with payments/admin updates.
-     */
-
-    const interval =
-      setInterval(() => {
-        loadCustomerIdentity();
-        loadPurchases();
-      }, 1000);
-
     return () => {
       window.removeEventListener(
         "storage",
         handleStorageChange
       );
-
-      clearInterval(interval);
     };
-  }, []);
-
-  /* =======================================================
-     CURRENT CUSTOMER ID
-  ======================================================= */
-
-  const customerId =
-    normalizeCustomerId(
-      customer?.customerId
-    );
-
-  /* =======================================================
-     CUSTOMER ORDERS
-     
-     IMPORTANT:
-     Orders are ONLY considered owned by the customer
-     when their customerId matches exactly.
-     
-     Email is intentionally NOT used as fallback.
-  ======================================================= */
-
-  const customerOrders =
-    useMemo(() => {
-      if (!customerId) {
-        return [];
-      }
-
-      return purchases.filter(
-        (order) => {
-          const orderCustomerId =
-            normalizeCustomerId(
-              order?.customerId
-            );
-
-          return (
-            orderCustomerId &&
-            orderCustomerId ===
-              customerId
-          );
-        }
-      );
-    }, [
-      customerId,
-      purchases,
-    ]);
+  }, [
+    loadCustomerIdentity,
+    fetchOrders,
+  ]);
 
   /* =======================================================
      SORT ORDERS
-     
-     Newest purchases first.
+
+     Newest orders first.
   ======================================================= */
 
   const sortedOrders =
     useMemo(() => {
-      return customerOrders
+      return orders
         .slice()
         .sort((a, b) => {
           const dateA =
             new Date(
-              a?.purchasedAt ||
+              a?.createdAt ||
+                a?.purchasedAt ||
                 a?.paidAt ||
                 0
             ).getTime();
 
           const dateB =
             new Date(
-              b?.purchasedAt ||
+              b?.createdAt ||
+                b?.purchasedAt ||
                 b?.paidAt ||
                 0
             ).getTime();
 
           return dateB - dateA;
         });
-    }, [
-      customerOrders,
-    ]);
-
-  /* =======================================================
-     UNIQUE ORDERS
-     
-     Multiple products can belong to one orderId.
-     Therefore Total Orders should count actual orders,
-     not individual product lines.
-  ======================================================= */
-
-  const uniqueOrderIds =
-    useMemo(() => {
-      const ids =
-        new Set();
-
-      customerOrders.forEach(
-        (order) => {
-          const id =
-            order?.orderId ||
-            order?.purchaseId ||
-            order?.id;
-
-          if (id) {
-            ids.add(
-              String(id)
-            );
-          }
-        }
-      );
-
-      return ids;
-    }, [
-      customerOrders,
-    ]);
+    }, [orders]);
 
   /* =======================================================
      TOTAL ITEMS
@@ -424,20 +523,15 @@ function MyOrders() {
 
   const totalItems =
     useMemo(() => {
-      return customerOrders.reduce(
+      return orders.reduce(
         (count, order) =>
           count +
-          Math.max(
-            1,
-            Number(
-              order?.quantity || 1
-            )
+          getOrderItemsCount(
+            order
           ),
         0
       );
-    }, [
-      customerOrders,
-    ]);
+    }, [orders]);
 
   /* =======================================================
      TOTAL SPENT
@@ -445,15 +539,13 @@ function MyOrders() {
 
   const totalSpent =
     useMemo(() => {
-      return customerOrders.reduce(
+      return orders.reduce(
         (sum, order) =>
           sum +
           getOrderTotal(order),
         0
       );
-    }, [
-      customerOrders,
-    ]);
+    }, [orders]);
 
   /* =======================================================
      CUSTOMER DISPLAY NAME
@@ -495,15 +587,13 @@ function MyOrders() {
             <p>
               Your purchases are linked
               to your unique customer
-              identity for privacy and
-              security.
+              identity.
             </p>
 
           </div>
         </section>
 
         <section className="my-orders-content">
-
           <div className="container">
 
             <div className="no-orders">
@@ -518,14 +608,14 @@ function MyOrders() {
 
               <h2>
                 We couldn't identify
-                your customer account
+                your customer reference
               </h2>
 
               <p>
-                Your orders are protected
-                and can only be displayed
-                after a valid customer
-                identity has been established.
+                Please return to the
+                marketplace and complete
+                checkout to create your
+                customer reference.
               </p>
 
               <Link
@@ -539,7 +629,6 @@ function MyOrders() {
             </div>
 
           </div>
-
         </section>
 
       </div>
@@ -547,17 +636,14 @@ function MyOrders() {
   }
 
   /* =======================================================
-     NO ORDERS FOR CURRENT CUSTOMER
+     LOADING
   ======================================================= */
 
-  if (
-    customerOrders.length === 0
-  ) {
+  if (loading) {
     return (
       <div className="my-orders-page">
 
         <section className="my-orders-header">
-
           <div className="container">
 
             <Link
@@ -577,98 +663,33 @@ function MyOrders() {
             </h1>
 
             <p>
-              View your purchases,
-              order status, and
-              transaction history.
+              Loading your orders...
             </p>
 
           </div>
-
         </section>
 
         <section className="my-orders-content">
-
           <div className="container">
-
-            {/* CUSTOMER IDENTITY */}
-
-            <div className="customer-identity-bar">
-
-              <div className="customer-identity-icon">
-                <FiShield />
-              </div>
-
-              <div className="customer-identity-info">
-
-                <small>
-                  CUSTOMER
-                </small>
-
-                <strong>
-                  {customerName}
-                </strong>
-
-                {(
-                  customer?.email ||
-                  customer?.customerEmail
-                ) && (
-                  <span>
-                    {customer.email ||
-                      customer.customerEmail}
-                  </span>
-                )}
-
-              </div>
-
-              {customer?.customerId && (
-                <div className="customer-id">
-
-                  <small>
-                    CUSTOMER ID
-                  </small>
-
-                  <strong>
-                    {customer.customerId}
-                  </strong>
-
-                </div>
-              )}
-
-            </div>
 
             <div className="no-orders">
 
               <div className="no-orders-icon">
-                <FiShoppingBag />
+                <FiClock />
               </div>
 
-              <span>
-                NO ORDERS YET
-              </span>
-
               <h2>
-                Your order history
-                is empty
+                Loading orders
               </h2>
 
               <p>
-                You haven't purchased
-                anything from Account
-                Bazaar yet.
+                Please wait while we
+                retrieve your order history.
               </p>
-
-              <Link
-                to="/accounts"
-                className="browse-orders-button"
-              >
-                <FiShoppingBag />
-                Browse Marketplace
-              </Link>
 
             </div>
 
           </div>
-
         </section>
 
       </div>
@@ -707,9 +728,8 @@ function MyOrders() {
           </h1>
 
           <p>
-            View your purchases,
-            order status, and
-            transaction history.
+            View your orders, payment
+            status, and order progress.
           </p>
 
         </div>
@@ -744,13 +764,9 @@ function MyOrders() {
                 {customerName}
               </strong>
 
-              {(
-                customer?.email ||
-                customer?.customerEmail
-              ) && (
+              {customer?.email && (
                 <span>
-                  {customer.email ||
-                    customer.customerEmail}
+                  {customer.email}
                 </span>
               )}
 
@@ -769,6 +785,22 @@ function MyOrders() {
             </div>
 
           </div>
+
+          {/* =================================================
+              ERROR
+          ================================================= */}
+
+          {error && (
+            <div className="payment-inline-error">
+
+              <FiAlertCircle />
+
+              <span>
+                {error}
+              </span>
+
+            </div>
+          )}
 
           {/* =================================================
               ORDER OVERVIEW
@@ -791,7 +823,7 @@ function MyOrders() {
                 </small>
 
                 <strong>
-                  {uniqueOrderIds.size}
+                  {orders.length}
                 </strong>
 
               </div>
@@ -820,7 +852,7 @@ function MyOrders() {
 
             </div>
 
-            {/* TOTAL SPENT */}
+            {/* TOTAL VALUE */}
 
             <div className="orders-overview-card">
 
@@ -831,7 +863,7 @@ function MyOrders() {
               <div>
 
                 <small>
-                  Total Spent
+                  Order Value
                 </small>
 
                 <strong>
@@ -866,237 +898,389 @@ function MyOrders() {
                 </h2>
 
                 <p>
-                  Your recently purchased
-                  products are listed
-                  below.
+                  Your orders are retrieved
+                  directly from our server.
                 </p>
 
               </div>
 
-              <strong>
-                {uniqueOrderIds.size}{" "}
-                {uniqueOrderIds.size ===
-                1
-                  ? "Order"
-                  : "Orders"}
-              </strong>
+              <button
+                type="button"
+                onClick={() =>
+                  fetchOrders(false)
+                }
+                className="payment-secondary-button"
+                disabled={refreshing}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  cursor: refreshing
+                    ? "not-allowed"
+                    : "pointer",
+                }}
+              >
+                <FiRefreshCw
+                  style={{
+                    animation: refreshing
+                      ? "spin 1s linear infinite"
+                      : "none",
+                  }}
+                />
+
+                {refreshing
+                  ? "Refreshing..."
+                  : "Refresh"}
+              </button>
 
             </div>
 
             {/* =================================================
-                ORDER LIST
+                NO ORDERS
             ================================================= */}
 
-            <div className="orders-list">
+            {sortedOrders.length === 0 ? (
 
-              {sortedOrders.map(
-                (order, index) => {
+              <div className="no-orders">
 
-                  const quantity =
-                    Math.max(
-                      1,
-                      Number(
-                        order?.quantity ||
-                          1
+                <div className="no-orders-icon">
+                  <FiShoppingBag />
+                </div>
+
+                <span>
+                  NO ORDERS YET
+                </span>
+
+                <h2>
+                  Your order history
+                  is empty
+                </h2>
+
+                <p>
+                  You haven't placed
+                  any orders from Account
+                  Bazaar yet.
+                </p>
+
+                <Link
+                  to="/accounts"
+                  className="browse-orders-button"
+                >
+                  <FiShoppingBag />
+                  Browse Marketplace
+                </Link>
+
+              </div>
+
+            ) : (
+
+              /* =================================================
+                  ORDER LIST
+              ================================================= */
+
+              <div className="orders-list">
+
+                {sortedOrders.map(
+                  (order) => {
+
+                    const orderId =
+                      order?.orderId ||
+                      order?._id;
+
+                    const status =
+                      order?.status ||
+                      "pending";
+
+                    const paymentStatus =
+                      getPaymentStatus(
+                        order
+                      );
+
+                    const orderTotal =
+                      getOrderTotal(
+                        order
+                      );
+
+                    const itemCount =
+                      getOrderItemsCount(
+                        order
+                      );
+
+                    const orderDate =
+                      order?.createdAt ||
+                      order?.purchasedAt ||
+                      order?.paidAt;
+
+                    /* =================================================
+                       PRODUCT ITEMS
+                    ================================================= */
+
+                    const items =
+                      Array.isArray(
+                        order?.items
                       )
-                    );
+                        ? order.items
+                        : [];
 
-                  const orderTotal =
-                    getOrderTotal(
-                      order
-                    );
+                    return (
+                      <article
+                        className="order-card"
+                        key={
+                          orderId
+                        }
+                      >
 
-                  const status =
-                    order?.status ||
-                    "Pending";
+                        {/* =====================================
+                            PRODUCT IMAGE
+                        ===================================== */}
 
-                  const paymentStatus =
-                    order?.paymentStatus ||
-                    "Paid";
+                        <div className="order-product-image">
 
-                  const orderId =
-                    order?.purchaseId ||
-                    order?.orderId ||
-                    order?.id ||
-                    `ORDER-${index + 1}`;
+                          {items[0]?.image ? (
 
-                  const displayOrderId =
-                    order?.orderId ||
-                    orderId;
+                            <img
+                              src={
+                                items[0]
+                                  .image
+                              }
+                              alt={
+                                items[0]
+                                  ?.name ||
+                                "Purchased product"
+                              }
+                            />
 
-                  return (
-                    <article
-                      className="order-card"
-                      key={orderId}
-                    >
+                          ) : (
 
-                      {/* =====================================
-                          PRODUCT IMAGE
-                      ===================================== */}
+                            <div className="order-image-placeholder">
+                              <FiShoppingBag />
+                            </div>
 
-                      <div className="order-product-image">
-
-                        {order?.image ? (
-
-                          <img
-                            src={order.image}
-                            alt={
-                              order?.name ||
-                              "Purchased product"
-                            }
-                          />
-
-                        ) : (
-
-                          <div className="order-image-placeholder">
-                            <FiShoppingBag />
-                          </div>
-
-                        )}
-
-                      </div>
-
-                      {/* =====================================
-                          ORDER INFORMATION
-                      ===================================== */}
-
-                      <div className="order-main">
-
-                        <div className="order-top">
-
-                          <div>
-
-                            <span className="order-category">
-                              {order?.category ||
-                                "Marketplace"}
-                            </span>
-
-                            <h3>
-                              {order?.name ||
-                                "Product"}
-                            </h3>
-
-                          </div>
-
-                          <span
-                            className={`order-status ${getStatusClass(
-                              status
-                            )}`}
-                          >
-                            {getStatusIcon(
-                              status
-                            )}
-
-                            {status}
-                          </span>
+                          )}
 
                         </div>
 
-                        <div className="order-details">
+                        {/* =====================================
+                            ORDER INFORMATION
+                        ===================================== */}
+
+                        <div className="order-main">
+
+                          <div className="order-top">
+
+                            <div>
+
+                              <span className="order-category">
+                                Marketplace
+                              </span>
+
+                              <h3>
+                                {items.length ===
+                                1
+                                  ? items[0]
+                                      ?.name ||
+                                    "Product"
+                                  : `${items.length} Products`}
+                              </h3>
+
+                            </div>
+
+                            <span
+                              className={`order-status ${getStatusClass(
+                                status
+                              )}`}
+                            >
+                              {getStatusIcon(
+                                status
+                              )}
+
+                              {String(
+                                status
+                              )
+                                .charAt(0)
+                                .toUpperCase() +
+                                String(
+                                  status
+                                ).slice(1)}
+
+                            </span>
+
+                          </div>
+
+                          {/* =================================
+                              MULTIPLE ITEMS
+                          ================================= */}
+
+                          {items.length >
+                            1 && (
+                            <div
+                              style={{
+                                marginTop:
+                                  "8px",
+                                fontSize:
+                                  "0.9rem",
+                                opacity:
+                                  0.8,
+                              }}
+                            >
+                              {items.map(
+                                (
+                                  item,
+                                  itemIndex
+                                ) => (
+                                  <div
+                                    key={`${orderId}-${itemIndex}`}
+                                  >
+                                    {item?.name ||
+                                      "Product"}{" "}
+                                    ×{" "}
+                                    {Math.max(
+                                      1,
+                                      Number(
+                                        item?.quantity ||
+                                          1
+                                      )
+                                    )}
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          )}
+
+                          <div className="order-details">
+
+                            <span>
+                              <FiPackage />
+
+                              Items:{" "}
+                              {itemCount}
+                            </span>
+
+                            <span>
+                              <FiCheckCircle />
+
+                              Payment:{" "}
+                              {paymentStatus}
+                            </span>
+
+                            <span>
+                              <FiClock />
+
+                              {formatDate(
+                                orderDate
+                              )}
+
+                              {orderDate && (
+                                <>
+                                  {" • "}
+                                  {formatTime(
+                                    orderDate
+                                  )}
+                                </>
+                              )}
+
+                            </span>
+
+                          </div>
+
+                          {/* =================================
+                              ORDER ID
+                          ================================= */}
+
+                          <p className="order-id">
+
+                            Order ID:{" "}
+
+                            <strong>
+                              #
+                              {String(
+                                orderId ||
+                                  ""
+                              ).split(
+                                "."
+                              )[0]}
+                            </strong>
+
+                          </p>
+
+                          {/* =================================
+                              CUSTOMER ID
+                          ================================= */}
+
+                          <p className="order-customer-id">
+
+                            Customer ID:{" "}
+
+                            <strong>
+                              {
+                                order.customerId
+                              }
+                            </strong>
+
+                          </p>
+
+                          {/* =================================
+                              PAYMENT INFORMATION
+                          ================================= */}
+
+                          {order?.payment
+                            ?.method && (
+                            <p className="order-customer-id">
+                              Payment Method:{" "}
+                              <strong>
+                                {
+                                  order
+                                    .payment
+                                    .method
+                                }
+                              </strong>
+                            </p>
+                          )}
+
+                        </div>
+
+                        {/* =====================================
+                            PRICE
+                        ===================================== */}
+
+                        <div className="order-price">
+
+                          <small>
+                            Order Total
+                          </small>
+
+                          <strong>
+                            $
+                            {orderTotal.toFixed(
+                              2
+                            )}
+                          </strong>
+
+                          {order?.totalKES && (
+                            <span>
+                              KES{" "}
+                              {Number(
+                                order.totalKES
+                              ).toFixed(
+                                2
+                              )}
+                            </span>
+                          )}
 
                           <span>
-                            <FiPackage />
-
-                            Quantity:{" "}
-                            {quantity}
-                          </span>
-
-                          <span>
-                            <FiCheckCircle />
-
-                            Payment:{" "}
                             {paymentStatus}
                           </span>
 
-                          <span>
-                            <FiClock />
-
-                            {formatDate(
-                              order?.purchasedAt ||
-                                order?.paidAt
-                            )}
-
-                            {(
-                              order?.purchasedAt ||
-                              order?.paidAt
-                            ) && (
-                              <>
-                                {" • "}
-                                {formatTime(
-                                  order?.purchasedAt ||
-                                    order?.paidAt
-                                )}
-                              </>
-                            )}
-                          </span>
-
                         </div>
 
-                        {/* ORDER ID */}
+                      </article>
+                    );
+                  }
+                )}
 
-                        <p className="order-id">
+              </div>
 
-                          Order ID:{" "}
-
-                          <strong>
-                            #
-                            {String(
-                              displayOrderId
-                            ).split(".")[0]}
-                          </strong>
-
-                        </p>
-
-                        {/* CUSTOMER ID */}
-
-                        <p className="order-customer-id">
-
-                          Customer ID:{" "}
-
-                          <strong>
-                            {order.customerId}
-                          </strong>
-
-                        </p>
-
-                      </div>
-
-                      {/* =====================================
-                          PRICE
-                      ===================================== */}
-
-                      <div className="order-price">
-
-                        <small>
-                          Order Total
-                        </small>
-
-                        <strong>
-                          $
-                          {orderTotal.toFixed(
-                            2
-                          )}
-                        </strong>
-
-                        <span>
-                          $
-                          {Number(
-                            order?.price ||
-                              0
-                          ).toFixed(
-                            2
-                          )}{" "}
-                          × {quantity}
-                        </span>
-
-                      </div>
-
-                    </article>
-                  );
-                }
-              )}
-
-            </div>
+            )}
 
           </div>
 

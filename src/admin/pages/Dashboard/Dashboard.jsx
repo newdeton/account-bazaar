@@ -1,15 +1,23 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
 import {
-  FiShoppingBag,
-  FiUsers,
+  FiAlertCircle,
+  FiArrowDownRight,
+  FiArrowUpRight,
+  FiBookOpen,
+  FiCheck,
+  FiCheckCircle,
+  FiClock,
   FiGlobe,
   FiMessageSquare,
-  FiBookOpen,
-  FiUserCheck,
-  FiArrowUpRight,
-  FiArrowDownRight,
   FiMoreHorizontal,
+  FiPackage,
+  FiRefreshCw,
   FiShield,
+  FiShoppingBag,
+  FiUserCheck,
+  FiUsers,
+  FiX,
 } from "react-icons/fi";
 
 import StatCard from "../../components/StatCard/StatCard";
@@ -17,15 +25,36 @@ import StatCard from "../../components/StatCard/StatCard";
 import "./Dashboard.css";
 
 /* =========================================================
-   STORAGE KEYS
+   API CONFIGURATION
 ========================================================= */
 
-const CUSTOMER_KEY = "accountBazaarCustomer";
-const PURCHASES_KEY = "purchases";
-const ACCOUNTS_KEY = "accountBazaarAccounts";
-const PROXIES_KEY = "accountBazaarProxies";
-const MESSAGES_KEY = "accountBazaarMessages";
-const TRAINING_KEY = "trainingBookings";
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000";
+
+/* =========================================================
+   STORAGE KEYS
+
+   These remain for the parts of the dashboard that have not
+   yet been migrated to the backend.
+
+   ORDERS ARE NO LONGER READ FROM PURCHASES.
+========================================================= */
+
+const CUSTOMER_KEY =
+  "accountBazaarCustomer";
+
+const ACCOUNTS_KEY =
+  "accountBazaarAccounts";
+
+const PROXIES_KEY =
+  "accountBazaarProxies";
+
+const MESSAGES_KEY =
+  "accountBazaarMessages";
+
+const TRAINING_KEY =
+  "trainingBookings";
 
 /* =========================================================
    SAFE STORAGE READER
@@ -33,28 +62,49 @@ const TRAINING_KEY = "trainingBookings";
 
 const readArray = (key) => {
   try {
-    const saved = localStorage.getItem(key);
+    const saved =
+      localStorage.getItem(key);
 
-    if (!saved) return [];
+    if (!saved) {
+      return [];
+    }
 
-    const parsed = JSON.parse(saved);
+    const parsed =
+      JSON.parse(saved);
 
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed)
+      ? parsed
+      : [];
   } catch (error) {
-    console.error(`Failed to read ${key}:`, error);
+    console.error(
+      `Failed to read ${key}:`,
+      error
+    );
+
     return [];
   }
 };
 
+/* =========================================================
+   CUSTOMER READER
+========================================================= */
+
 const readCustomer = () => {
   try {
-    const saved = localStorage.getItem(CUSTOMER_KEY);
+    const saved =
+      localStorage.getItem(
+        CUSTOMER_KEY
+      );
 
-    if (!saved) return null;
+    if (!saved) {
+      return null;
+    }
 
-    const parsed = JSON.parse(saved);
+    const parsed =
+      JSON.parse(saved);
 
-    return parsed && typeof parsed === "object"
+    return parsed &&
+      typeof parsed === "object"
       ? parsed
       : null;
   } catch (error) {
@@ -73,33 +123,51 @@ const readCustomer = () => {
 
 const getDate = (item) => {
   const value =
-    item?.date ||
     item?.createdAt ||
+    item?.date ||
     item?.purchasedAt ||
     item?.bookedAt ||
     item?.paidAt;
 
-  if (!value) return null;
+  if (!value) {
+    return null;
+  }
 
-  const date = new Date(value);
+  const date =
+    new Date(value);
 
-  return Number.isNaN(date.getTime())
+  return Number.isNaN(
+    date.getTime()
+  )
     ? null
     : date;
 };
 
-const formatRelativeTime = (date) => {
-  if (!date) return "Recently";
+/* =========================================================
+   RELATIVE TIME
+========================================================= */
 
-  const now = Date.now();
+const formatRelativeTime = (
+  date
+) => {
+  if (!date) {
+    return "Recently";
+  }
+
+  const now =
+    Date.now();
+
   const difference =
     now - date.getTime();
 
-  const minutes = Math.floor(
-    difference / 60000
-  );
+  const minutes =
+    Math.floor(
+      difference / 60000
+    );
 
-  if (minutes < 1) return "Just now";
+  if (minutes < 1) {
+    return "Just now";
+  }
 
   if (minutes < 60) {
     return `${minutes} minute${
@@ -107,9 +175,10 @@ const formatRelativeTime = (date) => {
     } ago`;
   }
 
-  const hours = Math.floor(
-    minutes / 60
-  );
+  const hours =
+    Math.floor(
+      minutes / 60
+    );
 
   if (hours < 24) {
     return `${hours} hour${
@@ -117,9 +186,10 @@ const formatRelativeTime = (date) => {
     } ago`;
   }
 
-  const days = Math.floor(
-    hours / 24
-  );
+  const days =
+    Math.floor(
+      hours / 24
+    );
 
   if (days < 7) {
     return `${days} day${
@@ -137,6 +207,92 @@ const formatRelativeTime = (date) => {
 };
 
 /* =========================================================
+   ORDER TOTAL
+========================================================= */
+
+const getOrderTotal = (
+  order
+) => {
+  if (
+    typeof order?.totalUSD ===
+    "number"
+  ) {
+    return order.totalUSD;
+  }
+
+  if (
+    order?.totalUSD !==
+    undefined
+  ) {
+    return Number(
+      order.totalUSD || 0
+    );
+  }
+
+  const price =
+    Number(
+      order?.price || 0
+    );
+
+  const quantity =
+    Math.max(
+      1,
+      Number(
+        order?.quantity || 1
+      )
+    );
+
+  return price * quantity;
+};
+
+/* =========================================================
+   ORDER ITEM COUNT
+========================================================= */
+
+const getOrderItemCount = (
+  order
+) => {
+  if (
+    Array.isArray(
+      order?.items
+    )
+  ) {
+    return order.items.reduce(
+      (total, item) =>
+        total +
+        Math.max(
+          1,
+          Number(
+            item?.quantity || 1
+          )
+        ),
+      0
+    );
+  }
+
+  return Math.max(
+    1,
+    Number(
+      order?.quantity || 1
+    )
+  );
+};
+
+/* =========================================================
+   PAYMENT STATUS
+========================================================= */
+
+const getPaymentStatus = (
+  order
+) => {
+  return String(
+    order?.payment?.status ||
+      order?.paymentStatus ||
+      "pending"
+  ).toLowerCase();
+};
+
+/* =========================================================
    DASHBOARD
 ========================================================= */
 
@@ -150,7 +306,7 @@ function Dashboard() {
   const [proxies, setProxies] =
     useState([]);
 
-  const [purchases, setPurchases] =
+  const [orders, setOrders] =
     useState([]);
 
   const [messages, setMessages] =
@@ -159,132 +315,300 @@ function Dashboard() {
   const [trainingBookings, setTrainingBookings] =
     useState([]);
 
+  const [ordersLoading, setOrdersLoading] =
+    useState(true);
+
+  const [ordersError, setOrdersError] =
+    useState("");
+
+  const [refreshing, setRefreshing] =
+    useState(false);
+
+  const [confirmingOrderId, setConfirmingOrderId] =
+    useState(null);
+
+  const [paymentMethod, setPaymentMethod] =
+    useState("M-Pesa");
+
+  const [transactionId, setTransactionId] =
+    useState("");
+
+  const [actionError, setActionError] =
+    useState("");
+
   /* =======================================================
-     LOAD DASHBOARD DATA
+     LOAD LOCAL DASHBOARD DATA
+     
+     Orders are deliberately excluded because they now come
+     from MongoDB.
   ======================================================= */
 
-  const loadDashboardData = () => {
-    setCustomer(readCustomer());
-    setAccounts(readArray(ACCOUNTS_KEY));
-    setProxies(readArray(PROXIES_KEY));
-    setPurchases(readArray(PURCHASES_KEY));
-    setMessages(readArray(MESSAGES_KEY));
-    setTrainingBookings(
-      readArray(TRAINING_KEY)
+  const loadLocalDashboardData =
+    useCallback(() => {
+      setCustomer(
+        readCustomer()
+      );
+
+      setAccounts(
+        readArray(ACCOUNTS_KEY)
+      );
+
+      setProxies(
+        readArray(PROXIES_KEY)
+      );
+
+      setMessages(
+        readArray(MESSAGES_KEY)
+      );
+
+      setTrainingBookings(
+        readArray(TRAINING_KEY)
+      );
+    }, []);
+
+  /* =======================================================
+     FETCH ORDERS FROM MONGODB
+     
+     GET /api/payments/orders
+  ======================================================= */
+
+  const fetchOrders =
+    useCallback(
+      async (
+        showFullLoader = false
+      ) => {
+        if (showFullLoader) {
+          setOrdersLoading(true);
+        } else {
+          setRefreshing(true);
+        }
+
+        setOrdersError("");
+
+        try {
+          const response =
+            await fetch(
+              `${API_URL}/api/payments/orders`
+            );
+
+          let data;
+
+          try {
+            data =
+              await response.json();
+          } catch {
+            throw new Error(
+              "Invalid response received from the order server."
+            );
+          }
+
+          if (
+            !response.ok ||
+            !data.success
+          ) {
+            throw new Error(
+              data.message ||
+                "Unable to load orders."
+            );
+          }
+
+          setOrders(
+            Array.isArray(
+              data.orders
+            )
+              ? data.orders
+              : []
+          );
+        } catch (error) {
+          console.error(
+            "Failed to fetch orders:",
+            error
+          );
+
+          setOrdersError(
+            error.message ||
+              "Unable to load orders."
+          );
+        } finally {
+          setOrdersLoading(false);
+          setRefreshing(false);
+        }
+      },
+      []
     );
-  };
+
+  /* =======================================================
+     INITIAL LOAD
+  ======================================================= */
 
   useEffect(() => {
-    loadDashboardData();
+    loadLocalDashboardData();
+
+    fetchOrders(true);
+
+    const handleStorageChange =
+      () => {
+        loadLocalDashboardData();
+      };
 
     window.addEventListener(
       "storage",
-      loadDashboardData
-    );
-
-    const interval = setInterval(
-      loadDashboardData,
-      1500
+      handleStorageChange
     );
 
     return () => {
       window.removeEventListener(
         "storage",
-        loadDashboardData
+        handleStorageChange
       );
+    };
+  }, [
+    loadLocalDashboardData,
+    fetchOrders,
+  ]);
 
+  /* =======================================================
+     AUTO REFRESH ORDERS
+     
+     New customer orders will appear in the admin dashboard
+     without requiring a browser refresh.
+  ======================================================= */
+
+  useEffect(() => {
+    const interval =
+      setInterval(() => {
+        fetchOrders(false);
+      }, 10000);
+
+    return () => {
       clearInterval(interval);
     };
-  }, []);
+  }, [
+    fetchOrders,
+  ]);
 
   /* =======================================================
      CUSTOMER IDENTITIES
   ======================================================= */
 
-  const customerIdentities = useMemo(() => {
-    const identities = new Map();
+  const customerIdentities =
+    useMemo(() => {
+      const identities =
+        new Map();
 
-    const addIdentity = (item) => {
-      if (!item) return;
+      const addIdentity =
+        (item) => {
+          if (!item) {
+            return;
+          }
 
-      const customerId = String(
-        item.customerId || ""
-      )
-        .trim()
-        .toLowerCase();
+          const customerId =
+            String(
+              item.customerId ||
+                ""
+            )
+              .trim()
+              .toLowerCase();
 
-      const email = String(
-        item.customerEmail ||
-          item.email ||
-          ""
-      )
-        .trim()
-        .toLowerCase();
+          const email =
+            String(
+              item.customerEmail ||
+                item.customer?.email ||
+                item.email ||
+                ""
+            )
+              .trim()
+              .toLowerCase();
 
-      if (!customerId && !email) {
-        return;
-      }
+          if (
+            !customerId &&
+            !email
+          ) {
+            return;
+          }
 
-      const key =
-        customerId ||
-        email;
+          const key =
+            customerId ||
+            email;
 
-      if (!identities.has(key)) {
-        identities.set(key, {
-          customerId:
-            item.customerId || "",
-          name:
-            item.customerName ||
-            item.name ||
-            item.fullName ||
-            "Customer",
-          email:
-            item.customerEmail ||
-            item.email ||
-            "",
-        });
-      }
-    };
+          if (
+            !identities.has(key)
+          ) {
+            identities.set(
+              key,
+              {
+                customerId:
+                  item.customerId ||
+                  "",
 
-    addIdentity(customer);
+                name:
+                  item.customer?.name ||
+                  item.customerName ||
+                  item.name ||
+                  item.fullName ||
+                  "Customer",
 
-    purchases.forEach(addIdentity);
-    messages.forEach(addIdentity);
-    trainingBookings.forEach(addIdentity);
+                email:
+                  item.customer?.email ||
+                  item.customerEmail ||
+                  item.email ||
+                  "",
+              }
+            );
+          }
+        };
 
-    return Array.from(
-      identities.values()
-    );
-  }, [
-    customer,
-    purchases,
-    messages,
-    trainingBookings,
-  ]);
+      addIdentity(customer);
+
+      orders.forEach(
+        addIdentity
+      );
+
+      messages.forEach(
+        addIdentity
+      );
+
+      trainingBookings.forEach(
+        addIdentity
+      );
+
+      return Array.from(
+        identities.values()
+      );
+    }, [
+      customer,
+      orders,
+      messages,
+      trainingBookings,
+    ]);
 
   /* =======================================================
-     UNIQUE CUSTOMER COUNT
+     CUSTOMER COUNT
   ======================================================= */
 
   const totalCustomers =
     customerIdentities.length;
 
   /* =======================================================
-     ACCOUNT / PROXY COUNTS
+     INVENTORY COUNTS
   ======================================================= */
 
   const availableAccounts =
     accounts.filter(
       (account) =>
-        String(account.status || "")
-          .toLowerCase() === "available"
+        String(
+          account.status || ""
+        ).toLowerCase() ===
+        "available"
     ).length;
 
   const availableProxies =
     proxies.filter(
       (proxy) =>
-        String(proxy.status || "")
-          .toLowerCase() === "available"
+        String(
+          proxy.status || ""
+        ).toLowerCase() ===
+        "available"
     ).length;
 
   /* =======================================================
@@ -292,21 +616,59 @@ function Dashboard() {
   ======================================================= */
 
   const totalOrders =
-    purchases.length;
+    orders.length;
 
   const pendingOrders =
-    purchases.filter(
+    orders.filter(
       (order) =>
-        String(order.status || "Pending")
-          .toLowerCase() === "pending"
+        String(
+          order?.status ||
+            "pending"
+        ).toLowerCase() ===
+        "pending"
     ).length;
 
+  const pendingPayments =
+    orders.filter(
+      (order) =>
+        getPaymentStatus(
+          order
+        ) === "pending"
+    ).length;
+
+  const paidOrders =
+    orders.filter(
+      (order) =>
+        getPaymentStatus(
+          order
+        ) === "successful"
+    ).length;
+
+  /* =======================================================
+     TOTAL SALES
+     
+     Sales are counted from orders that have successfully
+     received payment confirmation.
+  ======================================================= */
+
   const totalSales =
-    purchases.reduce(
-      (sum, order) =>
-        sum +
-        Number(order.price || 0) *
-          Number(order.quantity || 1),
+    orders.reduce(
+      (sum, order) => {
+        if (
+          getPaymentStatus(
+            order
+          ) !== "successful"
+        ) {
+          return sum;
+        }
+
+        return (
+          sum +
+          getOrderTotal(
+            order
+          )
+        );
+      },
       0
     );
 
@@ -322,7 +684,8 @@ function Dashboard() {
 
         return replies.some(
           (reply) =>
-            reply.sender === "Customer" &&
+            reply.sender ===
+              "Customer" &&
             !reply.adminRead
         );
       }
@@ -339,125 +702,265 @@ function Dashboard() {
     trainingBookings.filter(
       (booking) =>
         String(
-          booking.status || "Pending"
-        ).toLowerCase() === "pending"
+          booking.status ||
+            "pending"
+        ).toLowerCase() ===
+        "pending"
     ).length;
 
   /* =======================================================
      RECENT ACTIVITY
   ======================================================= */
 
-  const activities = useMemo(() => {
-    const activityItems = [];
+  const activities =
+    useMemo(() => {
+      const activityItems =
+        [];
 
-    accounts.slice(0, 10).forEach(
-      (account) => {
-        const date = getDate(account);
+      /* -----------------------------------------------
+         ACCOUNTS
+      ----------------------------------------------- */
 
-        activityItems.push({
-          id: `account-${account.id}`,
-          title: "Account inventory updated",
-          description:
-            account.name ||
-            "Account added",
-          time: formatRelativeTime(date),
-          date,
-          type: "account",
-        });
-      }
-    );
+      accounts
+        .slice(0, 10)
+        .forEach(
+          (account) => {
+            const date =
+              getDate(
+                account
+              );
 
-    proxies.slice(0, 10).forEach(
-      (proxy) => {
-        const date = getDate(proxy);
+            activityItems.push({
+              id: `account-${
+                account.id ||
+                account._id ||
+                Math.random()
+              }`,
 
-        activityItems.push({
-          id: `proxy-${proxy.id}`,
-          title: "Proxy inventory updated",
-          description:
-            proxy.name ||
-            proxy.location ||
-            "Proxy added",
-          time: formatRelativeTime(date),
-          date,
-          type: "proxy",
-        });
-      }
-    );
+              title:
+                "Account inventory updated",
 
-    messages.slice(0, 10).forEach(
-      (message) => {
-        const date = getDate(message);
+              description:
+                account.name ||
+                "Account added",
 
-        activityItems.push({
-          id: `message-${message.id}`,
-          title: "Customer message received",
-          description:
-            message.subject ||
-            "New customer communication",
-          time: formatRelativeTime(date),
-          date,
-          type: "message",
-        });
-      }
-    );
+              time:
+                formatRelativeTime(
+                  date
+                ),
 
-    trainingBookings.slice(0, 10).forEach(
-      (booking) => {
-        const date = getDate(booking);
+              date,
 
-        activityItems.push({
-          id: `training-${booking.id}`,
-          title: "Training booking received",
-          description:
-            booking.training ||
-            "New training booking",
-          time: formatRelativeTime(date),
-          date,
-          type: "training",
-        });
-      }
-    );
+              type: "account",
+            });
+          }
+        );
 
-    purchases.slice(0, 10).forEach(
-      (purchase) => {
-        const date = getDate(purchase);
+      /* -----------------------------------------------
+         PROXIES
+      ----------------------------------------------- */
 
-        activityItems.push({
-          id: `purchase-${
-            purchase.purchaseId ||
-            purchase.id
-          }`,
-          title: "Customer order received",
-          description:
-            purchase.name ||
-            purchase.productName ||
-            "New marketplace order",
-          time: formatRelativeTime(date),
-          date,
-          type: "order",
-        });
-      }
-    );
+      proxies
+        .slice(0, 10)
+        .forEach(
+          (proxy) => {
+            const date =
+              getDate(
+                proxy
+              );
 
-    return activityItems
-      .sort((a, b) => {
-        const first =
-          a.date?.getTime() || 0;
+            activityItems.push({
+              id: `proxy-${
+                proxy.id ||
+                proxy._id ||
+                Math.random()
+              }`,
 
-        const second =
-          b.date?.getTime() || 0;
+              title:
+                "Proxy inventory updated",
 
-        return second - first;
-      })
-      .slice(0, 8);
-  }, [
-    accounts,
-    proxies,
-    messages,
-    trainingBookings,
-    purchases,
-  ]);
+              description:
+                proxy.name ||
+                proxy.location ||
+                "Proxy added",
+
+              time:
+                formatRelativeTime(
+                  date
+                ),
+
+              date,
+
+              type: "proxy",
+            });
+          }
+        );
+
+      /* -----------------------------------------------
+         MESSAGES
+      ----------------------------------------------- */
+
+      messages
+        .slice(0, 10)
+        .forEach(
+          (message) => {
+            const date =
+              getDate(
+                message
+              );
+
+            activityItems.push({
+              id: `message-${
+                message.id ||
+                message._id ||
+                Math.random()
+              }`,
+
+              title:
+                "Customer message received",
+
+              description:
+                message.subject ||
+                "New customer communication",
+
+              time:
+                formatRelativeTime(
+                  date
+                ),
+
+              date,
+
+              type: "message",
+            });
+          }
+        );
+
+      /* -----------------------------------------------
+         TRAINING
+      ----------------------------------------------- */
+
+      trainingBookings
+        .slice(0, 10)
+        .forEach(
+          (booking) => {
+            const date =
+              getDate(
+                booking
+              );
+
+            activityItems.push({
+              id: `training-${
+                booking.id ||
+                booking._id ||
+                Math.random()
+              }`,
+
+              title:
+                "Training booking received",
+
+              description:
+                booking.training ||
+                "New training booking",
+
+              time:
+                formatRelativeTime(
+                  date
+                ),
+
+              date,
+
+              type: "training",
+            });
+          }
+        );
+
+      /* -----------------------------------------------
+         MONGODB ORDERS
+      ----------------------------------------------- */
+
+      orders
+        .slice(0, 10)
+        .forEach(
+          (order) => {
+            const date =
+              getDate(
+                order
+              );
+
+            const firstItem =
+              Array.isArray(
+                order.items
+              )
+                ? order.items[0]
+                : null;
+
+            const itemCount =
+              Array.isArray(
+                order.items
+              )
+                ? order.items.length
+                : 1;
+
+            activityItems.push({
+              id: `order-${
+                order.orderId ||
+                order._id ||
+                Math.random()
+              }`,
+
+              title:
+                getPaymentStatus(
+                  order
+                ) === "pending"
+                  ? "New order awaiting payment"
+                  : "Customer order received",
+
+              description:
+                firstItem?.name
+                  ? itemCount > 1
+                    ? `${firstItem.name} + ${
+                        itemCount - 1
+                      } more`
+                    : firstItem.name
+                  : order.customer?.name ||
+                    "New marketplace order",
+
+              time:
+                formatRelativeTime(
+                  date
+                ),
+
+              date,
+
+              type: "order",
+            });
+          }
+        );
+
+      return activityItems
+        .sort(
+          (a, b) => {
+            const first =
+              a.date?.getTime() ||
+              0;
+
+            const second =
+              b.date?.getTime() ||
+              0;
+
+            return (
+              second - first
+            );
+          }
+        )
+        .slice(0, 8);
+    }, [
+      accounts,
+      proxies,
+      messages,
+      trainingBookings,
+      orders,
+    ]);
 
   /* =======================================================
      CUSTOMER DISTRIBUTION
@@ -465,12 +968,13 @@ function Dashboard() {
 
   const customerOrderCount =
     new Set(
-      purchases
+      orders
         .map(
-          (purchase) =>
-            purchase.customerId ||
-            purchase.customerEmail ||
-            purchase.email
+          (order) =>
+            order.customerId ||
+            order.customer?.email ||
+            order.customerEmail ||
+            order.email
         )
         .filter(Boolean)
     ).size;
@@ -499,25 +1003,237 @@ function Dashboard() {
         .filter(Boolean)
     ).size;
 
-  const getPercentage = (
-    value,
-    total
-  ) => {
-    if (!total) return 0;
+  const getPercentage =
+    (
+      value,
+      total
+    ) => {
+      if (!total) {
+        return 0;
+      }
 
-    return Math.min(
-      100,
-      Math.round(
-        (value / total) * 100
-      )
-    );
-  };
+      return Math.min(
+        100,
+        Math.round(
+          (value / total) *
+            100
+        )
+      );
+    };
 
   const customerBase =
     Math.max(
       totalCustomers,
       1
     );
+
+  /* =======================================================
+     RECENT ORDERS
+  ======================================================= */
+
+  const recentOrders =
+    useMemo(() => {
+      return orders
+        .slice()
+        .sort(
+          (a, b) => {
+            const dateA =
+              getDate(
+                a
+              )?.getTime() || 0;
+
+            const dateB =
+              getDate(
+                b
+              )?.getTime() || 0;
+
+            return (
+              dateB - dateA
+            );
+          }
+        )
+        .slice(0, 6);
+    }, [orders]);
+
+  /* =======================================================
+     OPEN PAYMENT CONFIRMATION
+  ======================================================= */
+
+  const openPaymentConfirmation =
+    (order) => {
+      setConfirmingOrderId(
+        order.orderId
+      );
+
+      setPaymentMethod(
+        "M-Pesa"
+      );
+
+      setTransactionId("");
+
+      setActionError("");
+    };
+
+  /* =======================================================
+     CLOSE PAYMENT CONFIRMATION
+  ======================================================= */
+
+  const closePaymentConfirmation =
+    () => {
+      if (
+        confirmingOrderId
+      ) {
+        return;
+      }
+
+      setActionError("");
+
+      setConfirmingOrderId(
+        null
+      );
+
+      setTransactionId("");
+    };
+
+  /* =======================================================
+     CONFIRM PAYMENT
+     
+     PATCH /api/payments/orders/:orderId/payment
+  ======================================================= */
+
+  const handleConfirmPayment =
+    async () => {
+      if (
+        !confirmingOrderId
+      ) {
+        return;
+      }
+
+      setActionError("");
+
+      const selectedOrder =
+        orders.find(
+          (order) =>
+            order.orderId ===
+            confirmingOrderId
+        );
+
+      if (!selectedOrder) {
+        setActionError(
+          "Order could not be found."
+        );
+
+        return;
+      }
+
+      if (
+        getPaymentStatus(
+          selectedOrder
+        ) === "successful"
+      ) {
+        setActionError(
+          "This payment has already been confirmed."
+        );
+
+        return;
+      }
+
+      try {
+        setRefreshing(
+          true
+        );
+
+        const response =
+          await fetch(
+            `${API_URL}/api/payments/orders/${encodeURIComponent(
+              confirmingOrderId
+            )}/payment`,
+            {
+              method: "PATCH",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body: JSON.stringify({
+                method:
+                  paymentMethod,
+
+                transactionId:
+                  transactionId.trim(),
+
+                confirmedBy:
+                  "Admin",
+              }),
+            }
+          );
+
+        let data;
+
+        try {
+          data =
+            await response.json();
+        } catch {
+          throw new Error(
+            "Invalid response received from the payment server."
+          );
+        }
+
+        if (
+          !response.ok ||
+          !data.success
+        ) {
+          throw new Error(
+            data.message ||
+              "Unable to confirm payment."
+          );
+        }
+
+        /* -----------------------------------------------
+           Update the order immediately in the UI.
+        ----------------------------------------------- */
+
+        if (data.order) {
+          setOrders(
+            (currentOrders) =>
+              currentOrders.map(
+                (order) =>
+                  order.orderId ===
+                  confirmingOrderId
+                    ? data.order
+                    : order
+              )
+          );
+        } else {
+          await fetchOrders(
+            false
+          );
+        }
+
+        setConfirmingOrderId(
+          null
+        );
+
+        setTransactionId("");
+
+        setActionError("");
+      } catch (error) {
+        console.error(
+          "Payment confirmation failed:",
+          error
+        );
+
+        setActionError(
+          error.message ||
+            "Unable to confirm payment."
+        );
+      } finally {
+        setRefreshing(
+          false
+        );
+      }
+    };
 
   /* =======================================================
      RENDER
@@ -534,14 +1250,18 @@ function Dashboard() {
 
         <div>
 
-          <span>ADMIN OVERVIEW</span>
+          <span>
+            ADMIN OVERVIEW
+          </span>
 
-          <h1>Dashboard</h1>
+          <h1>
+            Dashboard
+          </h1>
 
           <p>
-            Monitor customers, identities,
-            orders, communications, and
-            marketplace activity.
+            Monitor customers, orders,
+            payments, communications,
+            and marketplace activity.
           </p>
 
         </div>
@@ -549,6 +1269,7 @@ function Dashboard() {
         <div className="dashboard-heading-meta">
 
           <div className="dashboard-identity-status">
+
             <FiShield />
 
             <span>
@@ -558,11 +1279,32 @@ function Dashboard() {
             <strong>
               Active
             </strong>
+
           </div>
 
         </div>
 
       </div>
+
+      {/* =================================================
+          DATABASE ERROR
+      ================================================= */}
+
+      {ordersError && (
+        <div
+          className="payment-inline-error"
+          style={{
+            marginBottom:
+              "20px",
+          }}
+        >
+          <FiAlertCircle />
+
+          <span>
+            {ordersError}
+          </span>
+        </div>
+      )}
 
       {/* =================================================
           PRIMARY STATS
@@ -572,65 +1314,593 @@ function Dashboard() {
 
         <StatCard
           title="Customer Identities"
-          value={totalCustomers}
+          value={
+            totalCustomers
+          }
           change="Live"
           trend="up"
           subtitle="Unique customer profiles"
-          icon={<FiUserCheck />}
+          icon={
+            <FiUserCheck />
+          }
         />
 
         <StatCard
           title="Total Orders"
-          value={totalOrders}
+          value={
+            ordersLoading
+              ? "..."
+              : totalOrders
+          }
           change={
-            pendingOrders > 0
-              ? `${pendingOrders} pending`
-              : "All clear"
+            pendingPayments >
+            0
+              ? `${pendingPayments} pending payment`
+              : "All payments clear"
           }
           trend={
-            pendingOrders > 0
+            pendingPayments >
+            0
               ? "down"
               : "up"
           }
-          subtitle="Customer purchases"
-          icon={<FiShoppingBag />}
+          subtitle="MongoDB customer orders"
+          icon={
+            <FiShoppingBag />
+          }
         />
 
         <StatCard
           title="Customer Messages"
-          value={totalMessages}
+          value={
+            totalMessages
+          }
           change={
-            unreadMessages > 0
+            unreadMessages >
+            0
               ? `${unreadMessages} unread`
               : "No unread"
           }
           trend={
-            unreadMessages > 0
+            unreadMessages >
+            0
               ? "down"
               : "up"
           }
           subtitle="Support conversations"
-          icon={<FiMessageSquare />}
+          icon={
+            <FiMessageSquare />
+          }
         />
 
         <StatCard
           title="Training Bookings"
-          value={trainingBookings.length}
+          value={
+            trainingBookings.length
+          }
           change={
-            pendingTraining > 0
+            pendingTraining >
+            0
               ? `${pendingTraining} pending`
               : "Up to date"
           }
           trend={
-            pendingTraining > 0
+            pendingTraining >
+            0
               ? "down"
               : "up"
           }
           subtitle="Customer training requests"
-          icon={<FiBookOpen />}
+          icon={
+            <FiBookOpen />
+          }
         />
 
       </div>
+
+      {/* =================================================
+          PENDING PAYMENTS
+      ================================================= */}
+
+      <section
+        className="dashboard-panel"
+        style={{
+          marginBottom:
+            "24px",
+        }}
+      >
+
+        <div className="panel-header">
+
+          <div>
+
+            <span className="panel-eyebrow">
+              PAYMENT MANAGEMENT
+            </span>
+
+            <h2>
+              Pending Payments
+            </h2>
+
+            <p>
+              Orders created by customers
+              that are waiting for manual
+              payment confirmation.
+            </p>
+
+          </div>
+
+          <button
+            type="button"
+            className="panel-more"
+            onClick={() =>
+              fetchOrders(
+                false
+              )
+            }
+            disabled={
+              refreshing
+            }
+            aria-label="Refresh orders"
+          >
+            <FiRefreshCw
+              style={{
+                animation:
+                  refreshing
+                    ? "spin 1s linear infinite"
+                    : "none",
+              }}
+            />
+          </button>
+
+        </div>
+
+        {ordersLoading ? (
+
+          <div className="dashboard-empty-state">
+
+            <FiClock />
+
+            <strong>
+              Loading orders...
+            </strong>
+
+            <span>
+              Retrieving orders from
+              MongoDB.
+            </span>
+
+          </div>
+
+        ) : pendingPayments ===
+          0 ? (
+
+          <div className="dashboard-empty-state">
+
+            <FiCheckCircle />
+
+            <strong>
+              No pending payments
+            </strong>
+
+            <span>
+              All current orders have
+              been handled.
+            </span>
+
+          </div>
+
+        ) : (
+
+          <div
+            style={{
+              display:
+                "flex",
+              flexDirection:
+                "column",
+              gap: "12px",
+            }}
+          >
+
+            {recentOrders
+              .filter(
+                (order) =>
+                  getPaymentStatus(
+                    order
+                  ) ===
+                  "pending"
+              )
+              .map(
+                (order) => {
+
+                  const itemCount =
+                    getOrderItemCount(
+                      order
+                    );
+
+                  const orderTotal =
+                    getOrderTotal(
+                      order
+                    );
+
+                  const isConfirming =
+                    confirmingOrderId ===
+                    order.orderId;
+
+                  return (
+                    <div
+                      key={
+                        order.orderId
+                      }
+                      style={{
+                        border:
+                          "1px solid rgba(0,0,0,0.08)",
+                        borderRadius:
+                          "12px",
+                        padding:
+                          "16px",
+                      }}
+                    >
+
+                      <div
+                        style={{
+                          display:
+                            "flex",
+                          alignItems:
+                            "center",
+                          justifyContent:
+                            "space-between",
+                          gap:
+                            "16px",
+                          flexWrap:
+                            "wrap",
+                        }}
+                      >
+
+                        <div>
+
+                          <span
+                            style={{
+                              fontSize:
+                                "0.75rem",
+                              opacity:
+                                0.65,
+                              display:
+                                "block",
+                            }}
+                          >
+                            ORDER
+                          </span>
+
+                          <strong>
+                            #
+                            {
+                              order.orderId
+                            }
+                          </strong>
+
+                          <p
+                            style={{
+                              margin:
+                                "5px 0 0",
+                            }}
+                          >
+                            {
+                              order
+                                .customer
+                                ?.name ||
+                              "Customer"
+                            }
+
+                            {" • "}
+
+                            {
+                              order
+                                .customer
+                                ?.phone ||
+                              order
+                                .customer
+                                ?.email ||
+                              "No contact"
+                            }
+                          </p>
+
+                        </div>
+
+                        <div>
+
+                          <span
+                            style={{
+                              fontSize:
+                                "0.75rem",
+                              opacity:
+                                0.65,
+                              display:
+                                "block",
+                            }}
+                          >
+                            ITEMS
+                          </span>
+
+                          <strong>
+                            {
+                              itemCount
+                            }
+                          </strong>
+
+                        </div>
+
+                        <div>
+
+                          <span
+                            style={{
+                              fontSize:
+                                "0.75rem",
+                              opacity:
+                                0.65,
+                              display:
+                                "block",
+                            }}
+                          >
+                            AMOUNT
+                          </span>
+
+                          <strong>
+                            $
+                            {Number(
+                              orderTotal
+                            ).toFixed(
+                              2
+                            )}
+                          </strong>
+
+                        </div>
+
+                        <span
+                          className="order-status pending"
+                        >
+                          <FiClock />
+                          Pending Payment
+                        </span>
+
+                        <button
+                          type="button"
+                          className="payment-button"
+                          onClick={() =>
+                            openPaymentConfirmation(
+                              order
+                            )
+                          }
+                          disabled={
+                            confirmingOrderId !==
+                              null &&
+                            !isConfirming
+                          }
+                          style={{
+                            width:
+                              "auto",
+                            padding:
+                              "10px 16px",
+                          }}
+                        >
+                          <FiCheck />
+                          Confirm Payment
+                        </button>
+
+                      </div>
+
+                      {/* =================================
+                          PAYMENT CONFIRMATION FORM
+                      ================================= */}
+
+                      {isConfirming && (
+                        <div
+                          style={{
+                            marginTop:
+                              "16px",
+                            paddingTop:
+                              "16px",
+                            borderTop:
+                              "1px solid rgba(0,0,0,0.08)",
+                          }}
+                        >
+
+                          <div
+                            style={{
+                              display:
+                                "grid",
+                              gridTemplateColumns:
+                                "repeat(auto-fit, minmax(180px, 1fr))",
+                              gap:
+                                "12px",
+                            }}
+                          >
+
+                            <div className="payment-form-group">
+
+                              <label>
+                                Payment Method
+                              </label>
+
+                              <select
+                                value={
+                                  paymentMethod
+                                }
+                                onChange={(
+                                  event
+                                ) =>
+                                  setPaymentMethod(
+                                    event
+                                      .target
+                                      .value
+                                  )
+                                }
+                                disabled={
+                                  refreshing
+                                }
+                              >
+                                <option>
+                                  M-Pesa
+                                </option>
+
+                                <option>
+                                  Bank Transfer
+                                </option>
+
+                                <option>
+                                  Cash
+                                </option>
+
+                                <option>
+                                  Other
+                                </option>
+                              </select>
+
+                            </div>
+
+                            <div className="payment-form-group">
+
+                              <label>
+                                Transaction ID
+                                <span
+                                  style={{
+                                    opacity:
+                                      0.6,
+                                    marginLeft:
+                                      "5px",
+                                  }}
+                                >
+                                  (optional)
+                                </span>
+                              </label>
+
+                              <input
+                                type="text"
+                                value={
+                                  transactionId
+                                }
+                                onChange={(
+                                  event
+                                ) =>
+                                  setTransactionId(
+                                    event
+                                      .target
+                                      .value
+                                  )
+                                }
+                                placeholder="e.g. QWE123XYZ"
+                                disabled={
+                                  refreshing
+                                }
+                              />
+
+                            </div>
+
+                          </div>
+
+                          {actionError && (
+                            <div
+                              className="payment-inline-error"
+                              style={{
+                                marginTop:
+                                  "12px",
+                              }}
+                            >
+                              <FiAlertCircle />
+
+                              <span>
+                                {
+                                  actionError
+                                }
+                              </span>
+                            </div>
+                          )}
+
+                          <div
+                            style={{
+                              display:
+                                "flex",
+                              gap:
+                                "10px",
+                              marginTop:
+                                "14px",
+                              flexWrap:
+                                "wrap",
+                            }}
+                          >
+
+                            <button
+                              type="button"
+                              className="payment-button"
+                              onClick={
+                                handleConfirmPayment
+                              }
+                              disabled={
+                                refreshing
+                              }
+                              style={{
+                                width:
+                                  "auto",
+                              }}
+                            >
+                              <FiCheck />
+
+                              {refreshing
+                                ? "Confirming..."
+                                : "Confirm Payment"}
+                            </button>
+
+                            <button
+                              type="button"
+                              className="payment-secondary-button"
+                              onClick={
+                                closePaymentConfirmation
+                              }
+                              disabled={
+                                refreshing
+                              }
+                              style={{
+                                width:
+                                  "auto",
+                              }}
+                            >
+                              <FiX />
+                              Cancel
+                            </button>
+
+                          </div>
+
+                          <p
+                            style={{
+                              marginTop:
+                                "12px",
+                              fontSize:
+                                "0.85rem",
+                              opacity:
+                                0.7,
+                            }}
+                          >
+                            Confirm only after
+                            you have verified
+                            that the customer
+                            has actually paid.
+                            Stock will be
+                            deducted when
+                            payment is confirmed.
+                          </p>
+
+                        </div>
+                      )}
+
+                    </div>
+                  );
+                }
+              )}
+
+          </div>
+        )}
+
+      </section>
 
       {/* =================================================
           DASHBOARD GRID
@@ -657,8 +1927,8 @@ function Dashboard() {
               </h2>
 
               <p>
-                Latest customer and marketplace
-                events.
+                Latest customer and
+                marketplace events.
               </p>
 
             </div>
@@ -666,7 +1936,12 @@ function Dashboard() {
             <button
               type="button"
               className="panel-more"
-              aria-label="More activity options"
+              onClick={() =>
+                fetchOrders(
+                  false
+                )
+              }
+              aria-label="Refresh activity"
             >
               <FiMoreHorizontal />
             </button>
@@ -675,12 +1950,16 @@ function Dashboard() {
 
           <div className="activity-list">
 
-            {activities.length > 0 ? (
+            {activities.length >
+            0 ? (
+
               activities.map(
                 (activity) => (
                   <div
                     className="activity-item"
-                    key={activity.id}
+                    key={
+                      activity.id
+                    }
                   >
 
                     <div
@@ -717,24 +1996,33 @@ function Dashboard() {
                     <div className="activity-content">
 
                       <h3>
-                        {activity.title}
+                        {
+                          activity.title
+                        }
                       </h3>
 
                       <p>
-                        {activity.description}
+                        {
+                          activity.description
+                        }
                       </p>
 
                     </div>
 
                     <time>
-                      {activity.time}
+                      {
+                        activity.time
+                      }
                     </time>
 
                   </div>
                 )
               )
+
             ) : (
+
               <div className="dashboard-empty-state">
+
                 <FiMessageSquare />
 
                 <strong>
@@ -745,7 +2033,9 @@ function Dashboard() {
                   New customer activity
                   will appear here.
                 </span>
+
               </div>
+
             )}
 
           </div>
@@ -771,8 +2061,9 @@ function Dashboard() {
               </h2>
 
               <p>
-                How identified customers are
-                interacting with the marketplace.
+                How identified customers
+                are interacting with the
+                marketplace.
               </p>
 
             </div>
@@ -782,6 +2073,7 @@ function Dashboard() {
           <div className="overview-item">
 
             <div>
+
               <span>
                 Identified Customers
               </span>
@@ -789,14 +2081,18 @@ function Dashboard() {
               <strong>
                 {totalCustomers}
               </strong>
+
             </div>
 
             <div className="progress">
+
               <span
                 style={{
-                  width: "100%",
+                  width:
+                    "100%",
                 }}
               />
+
             </div>
 
           </div>
@@ -804,16 +2100,21 @@ function Dashboard() {
           <div className="overview-item">
 
             <div>
+
               <span>
                 Customers with Orders
               </span>
 
               <strong>
-                {customerOrderCount}
+                {
+                  customerOrderCount
+                }
               </strong>
+
             </div>
 
             <div className="progress">
+
               <span
                 style={{
                   width: `${getPercentage(
@@ -822,6 +2123,7 @@ function Dashboard() {
                   )}%`,
                 }}
               />
+
             </div>
 
           </div>
@@ -829,16 +2131,21 @@ function Dashboard() {
           <div className="overview-item">
 
             <div>
+
               <span>
                 Customers with Messages
               </span>
 
               <strong>
-                {customerMessageCount}
+                {
+                  customerMessageCount
+                }
               </strong>
+
             </div>
 
             <div className="progress">
+
               <span
                 style={{
                   width: `${getPercentage(
@@ -847,6 +2154,7 @@ function Dashboard() {
                   )}%`,
                 }}
               />
+
             </div>
 
           </div>
@@ -854,16 +2162,21 @@ function Dashboard() {
           <div className="overview-item">
 
             <div>
+
               <span>
                 Customers in Training
               </span>
 
               <strong>
-                {customerTrainingCount}
+                {
+                  customerTrainingCount
+                }
               </strong>
+
             </div>
 
             <div className="progress">
+
               <span
                 style={{
                   width: `${getPercentage(
@@ -872,6 +2185,7 @@ function Dashboard() {
                   )}%`,
                 }}
               />
+
             </div>
 
           </div>
@@ -899,8 +2213,9 @@ function Dashboard() {
             </h2>
 
             <p>
-              A real-time snapshot of customer
-              activity and inventory.
+              A real-time snapshot of
+              customer activity, payments,
+              and inventory.
             </p>
 
           </div>
@@ -909,10 +2224,12 @@ function Dashboard() {
 
         <div className="performance-cards">
 
+          {/* TOTAL SALES */}
+
           <div className="performance-card">
 
             <span>
-              Total Sales
+              Confirmed Sales
             </span>
 
             <strong>
@@ -920,18 +2237,42 @@ function Dashboard() {
               {totalSales.toLocaleString(
                 "en-US",
                 {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
+                  minimumFractionDigits:
+                    2,
+
+                  maximumFractionDigits:
+                    2,
                 }
               )}
             </strong>
 
             <small className="positive">
               <FiArrowUpRight />
-              Customer purchases
+              Successful payments
             </small>
 
           </div>
+
+          {/* PAID ORDERS */}
+
+          <div className="performance-card">
+
+            <span>
+              Paid Orders
+            </span>
+
+            <strong>
+              {paidOrders}
+            </strong>
+
+            <small className="positive">
+              <FiCheckCircle />
+              Payment confirmed
+            </small>
+
+          </div>
+
+          {/* ACCOUNTS */}
 
           <div className="performance-card">
 
@@ -950,22 +2291,7 @@ function Dashboard() {
 
           </div>
 
-          <div className="performance-card">
-
-            <span>
-              Available Proxies
-            </span>
-
-            <strong>
-              {availableProxies}
-            </strong>
-
-            <small className="positive">
-              <FiArrowUpRight />
-              Current inventory
-            </small>
-
-          </div>
+          {/* PENDING */}
 
           <div className="performance-card">
 
@@ -974,20 +2300,23 @@ function Dashboard() {
             </span>
 
             <strong>
-              {pendingOrders +
-                pendingTraining}
+              {
+                pendingPayments +
+                pendingTraining
+              }
             </strong>
 
             <small
               className={
-                pendingOrders +
+                pendingPayments +
                   pendingTraining >
                 0
                   ? "negative"
                   : "positive"
               }
             >
-              {pendingOrders +
+
+              {pendingPayments +
                 pendingTraining >
               0 ? (
                 <FiArrowDownRight />
@@ -995,11 +2324,12 @@ function Dashboard() {
                 <FiArrowUpRight />
               )}
 
-              {pendingOrders +
+              {pendingPayments +
                 pendingTraining >
               0
                 ? "Requires attention"
                 : "Everything is clear"}
+
             </small>
 
           </div>

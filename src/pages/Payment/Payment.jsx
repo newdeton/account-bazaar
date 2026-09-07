@@ -1,7 +1,5 @@
 import {
   Link,
-  useNavigate,
-  useSearchParams,
 } from "react-router-dom";
 
 import {
@@ -13,7 +11,7 @@ import {
 import {
   FiAlertCircle,
   FiCheckCircle,
-  FiCreditCard,
+  FiClock,
   FiLock,
   FiPackage,
   FiShoppingBag,
@@ -73,9 +71,7 @@ const generateCustomerId = () => {
 const getCustomerIdentity = () => {
   try {
     const savedCustomer =
-      localStorage.getItem(
-        CUSTOMER_KEY
-      );
+      localStorage.getItem(CUSTOMER_KEY);
 
     if (savedCustomer) {
       const parsed =
@@ -97,12 +93,8 @@ const getCustomerIdentity = () => {
   }
 
   const customer = {
-    customerId:
-      generateCustomerId(),
-
-    createdAt:
-      new Date().toISOString(),
-
+    customerId: generateCustomerId(),
+    createdAt: new Date().toISOString(),
     name: "",
     email: "",
     phone: "",
@@ -142,35 +134,6 @@ const saveCustomer = (customer) => {
 };
 
 /* =========================================================
-   SAFE STORAGE ARRAY
-========================================================= */
-
-const readStorageArray = (key) => {
-  try {
-    const saved =
-      localStorage.getItem(key);
-
-    if (!saved) {
-      return [];
-    }
-
-    const parsed =
-      JSON.parse(saved);
-
-    return Array.isArray(parsed)
-      ? parsed
-      : [];
-  } catch (error) {
-    console.error(
-      `Failed to read ${key}:`,
-      error
-    );
-
-    return [];
-  }
-};
-
-/* =========================================================
    MONEY
 ========================================================= */
 
@@ -183,11 +146,6 @@ const formatMoney = (amount) => {
 ========================================================= */
 
 function Payment() {
-  const navigate = useNavigate();
-
-  const [searchParams] =
-    useSearchParams();
-
   const {
     cart,
     total,
@@ -207,13 +165,10 @@ function Payment() {
   const [processing, setProcessing] =
     useState(false);
 
-  const [verifying, setVerifying] =
-    useState(false);
-
   const [error, setError] =
     useState("");
 
-  const [paymentResult, setPaymentResult] =
+  const [order, setOrder] =
     useState(null);
 
   /* =======================================================
@@ -225,23 +180,6 @@ function Payment() {
     email: "",
     phone: "",
   });
-
-  /* =======================================================
-     FLUTTERWAVE RETURN PARAMETERS
-  ======================================================= */
-
-  const transactionId =
-    searchParams.get(
-      "transaction_id"
-    );
-
-  const txRef =
-    searchParams.get("tx_ref");
-
-  const transactionStatus =
-    searchParams.get(
-      "status"
-    );
 
   /* =======================================================
      LOAD GUEST CUSTOMER + TRAINING
@@ -261,6 +199,9 @@ function Payment() {
 
     /* =====================================================
        LOAD PENDING TRAINING BOOKING
+
+       Training payments remain separate from the product
+       order flow until the training backend is connected.
     ===================================================== */
 
     try {
@@ -336,143 +277,13 @@ function Payment() {
   };
 
   /* =======================================================
-     VERIFY FLUTTERWAVE PAYMENT
-     
-     IMPORTANT:
-     The frontend NEVER decides whether payment succeeded.
-     The backend verifies directly with Flutterwave.
-  ======================================================= */
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const verifyPayment = async () => {
-      if (!transactionId) {
-        return;
-      }
-
-      if (verifying || paymentResult) {
-        return;
-      }
-
-      setVerifying(true);
-      setProcessing(true);
-      setError("");
-
-      try {
-        const response =
-          await fetch(
-            `${API_URL}/api/payments/verify`,
-            {
-              method: "POST",
-
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
-
-              body: JSON.stringify({
-                transactionId,
-
-                txRef:
-                  txRef || undefined,
-              }),
-            }
-          );
-
-        let data;
-
-        try {
-          data =
-            await response.json();
-        } catch {
-          throw new Error(
-            "Invalid response received from payment server."
-          );
-        }
-
-        if (
-          !response.ok ||
-          !data.success
-        ) {
-          throw new Error(
-            data.message ||
-              "Payment verification failed."
-          );
-        }
-
-        if (cancelled) {
-          return;
-        }
-
-        /* ===============================================
-           PAYMENT VERIFIED
-        =============================================== */
-
-        setPaymentResult(
-          data.order
-        );
-
-        /* ===============================================
-           CLEAR PRODUCT CART ONLY AFTER VERIFIED PAYMENT
-        =============================================== */
-
-        if (!isTrainingPayment) {
-          clearCart();
-        }
-
-        /* ===============================================
-           CLEAR TRAINING PAYMENT ONLY AFTER VERIFIED PAYMENT
-        =============================================== */
-
-        if (isTrainingPayment) {
-          localStorage.removeItem(
-            PENDING_TRAINING_KEY
-          );
-        }
-      } catch (verificationError) {
-        if (cancelled) {
-          return;
-        }
-
-        console.error(
-          "Payment verification failed:",
-          verificationError
-        );
-
-        setError(
-          verificationError.message ||
-            "Unable to verify payment."
-        );
-      } finally {
-        if (!cancelled) {
-          setVerifying(false);
-          setProcessing(false);
-        }
-      }
-    };
-
-    verifyPayment();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    transactionId,
-    txRef,
-    isTrainingPayment,
-    clearCart,
-  ]);
-
-  /* =======================================================
      EMPTY CART
   ======================================================= */
 
   if (
     !isTrainingPayment &&
     cart.length === 0 &&
-    !transactionId &&
-    !paymentResult
+    !order
   ) {
     return (
       <div className="payment-page">
@@ -488,7 +299,7 @@ function Payment() {
 
             <p>
               Add products before
-              proceeding to payment.
+              proceeding to checkout.
             </p>
 
             <Link to="/accounts">
@@ -501,32 +312,44 @@ function Payment() {
   }
 
   /* =======================================================
-     SUCCESS
+     ORDER CREATED / PAYMENT UNAVAILABLE
   ======================================================= */
 
-  if (paymentResult) {
+  if (order) {
     return (
       <div className="payment-page">
         <div className="container">
           <div className="payment-success">
+
             <div className="payment-success-icon">
-              <FiCheckCircle />
+              <FiClock />
             </div>
 
             <span>
-              PAYMENT SUCCESSFUL
+              ORDER RECEIVED
             </span>
 
             <h1>
-              Payment Confirmed
+              Payment Temporarily Unavailable
             </h1>
 
             <p>
-              Your payment has been
-              verified successfully and
-              your order has been
-              received.
+              Your order has been successfully
+              received, but online payment is
+              temporarily unavailable.
             </p>
+
+            <p>
+              Our online payment gateway is
+              currently undergoing maintenance.
+              Please contact the admin team to
+              arrange and confirm payment for
+              your order.
+            </p>
+
+            {/* =========================================
+                ORDER REFERENCE
+            ========================================= */}
 
             <div className="payment-success-order">
               <span>
@@ -534,60 +357,104 @@ function Payment() {
               </span>
 
               <strong>
-                {paymentResult.orderId}
+                {order.orderId}
               </strong>
             </div>
 
-            {paymentResult.transactionId && (
-              <div className="payment-success-order">
-                <span>
-                  TRANSACTION ID
-                </span>
+            {/* =========================================
+                PAYMENT STATUS
+            ========================================= */}
 
-                <strong>
-                  {
-                    paymentResult.transactionId
-                  }
-                </strong>
-              </div>
-            )}
+            <div className="payment-success-order">
+              <span>
+                PAYMENT STATUS
+              </span>
+
+              <strong>
+                Pending Payment
+              </strong>
+            </div>
+
+            {/* =========================================
+                ORDER AMOUNT
+            ========================================= */}
 
             <div className="payment-success-amount">
               <span>
-                Amount Paid
+                Amount Due
               </span>
 
               <strong>
                 $
                 {formatMoney(
-                  paymentResult.totalUSD
+                  order.totalUSD ??
+                    paymentTotal
                 )}
               </strong>
             </div>
 
-            {paymentResult.totalKES && (
+            {order.totalKES && (
               <div className="payment-success-order">
                 <span>
-                  AMOUNT PROCESSED
+                  AMOUNT DUE
                 </span>
 
                 <strong>
                   KES{" "}
                   {formatMoney(
-                    paymentResult.totalKES
+                    order.totalKES
                   )}
                 </strong>
               </div>
             )}
 
+            {/* =========================================
+                NOTICE
+            ========================================= */}
+
+            <div
+              className="payment-inline-error"
+              style={{
+                marginTop: "20px",
+              }}
+            >
+              <FiAlertCircle />
+
+              <span>
+                Your order is saved. Stock will
+                only be deducted after payment
+                has been confirmed by an admin.
+              </span>
+            </div>
+
+            {/* =========================================
+                ACTIONS
+            ========================================= */}
+
             <div className="payment-success-actions">
+
+              <Link
+                to="/contact"
+                className="payment-button"
+              >
+                Contact Admin
+              </Link>
+
               <Link
                 to="/my-orders"
-                className="payment-button"
+                className="payment-secondary-button"
               >
                 View My Orders
               </Link>
 
+            </div>
+
+            <div
+              className="payment-success-actions"
+              style={{
+                marginTop: "10px",
+              }}
+            >
               <Link
                 to="/accounts"
                 className="payment-secondary-button"
@@ -595,6 +462,7 @@ function Payment() {
                 Continue Shopping
               </Link>
             </div>
+
           </div>
         </div>
       </div>
@@ -602,59 +470,7 @@ function Payment() {
   }
 
   /* =======================================================
-     PAYMENT VERIFICATION ERROR
-  ======================================================= */
-
-  if (
-    error &&
-    transactionId
-  ) {
-    return (
-      <div className="payment-page">
-        <div className="container">
-          <div className="payment-error">
-            <div className="payment-error-icon">
-              <FiAlertCircle />
-            </div>
-
-            <span>
-              PAYMENT VERIFICATION
-            </span>
-
-            <h1>
-              Payment Verification Failed
-            </h1>
-
-            <p>
-              {error}
-            </p>
-
-            {transactionStatus && (
-              <p>
-                Flutterwave returned
-                payment status:{" "}
-                <strong>
-                  {transactionStatus}
-                </strong>
-              </p>
-            )}
-
-            <div className="payment-error-actions">
-              <Link
-                to="/accounts"
-                className="payment-secondary-button"
-              >
-                Return to Marketplace
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  /* =======================================================
-     START PAYMENT
+     CREATE ORDER
   ======================================================= */
 
   const handlePayment = async () => {
@@ -739,18 +555,29 @@ function Payment() {
       return;
     }
 
+    /* =====================================================
+       TRAINING PAYMENT
+
+       Kept separate from the product order API.
+    ===================================================== */
+
+    if (isTrainingPayment) {
+      setError(
+        "Training payments are not connected yet. Please contact admin to complete your training booking."
+      );
+
+      return;
+    }
+
     setProcessing(true);
 
     try {
       /* ===================================================
-         SAVE GUEST CUSTOMER DETAILS
-         
-         This does NOT create an account.
+         SAVE CUSTOMER DETAILS
       =================================================== */
 
       const updatedCustomer = {
         ...customer,
-
         name,
         email,
         phone,
@@ -765,21 +592,15 @@ function Payment() {
       );
 
       /* ===================================================
-         TRAINING PAYMENT
-      =================================================== */
+         CREATE ORDER
 
-      if (isTrainingPayment) {
-        setError(
-          "Training payments are not connected yet."
-        );
+         IMPORTANT:
+         This does NOT start a payment.
 
-        setProcessing(false);
-
-        return;
-      }
-
-      /* ===================================================
-         CREATE PRODUCT PAYMENT
+         The backend creates:
+           order.status = pending
+           payment.status = pending
+           payment.provider = manual
       =================================================== */
 
       const response =
@@ -794,8 +615,7 @@ function Payment() {
             },
 
             body: JSON.stringify({
-              paymentType:
-                "product",
+              paymentType: "product",
 
               items: cart.map(
                 (item) => ({
@@ -829,6 +649,10 @@ function Payment() {
           }
         );
 
+      /* ===================================================
+         PARSE RESPONSE
+      =================================================== */
+
       let data;
 
       try {
@@ -836,9 +660,13 @@ function Payment() {
           await response.json();
       } catch {
         throw new Error(
-          "Invalid response received from the payment server."
+          "Invalid response received from the order server."
         );
       }
+
+      /* ===================================================
+         API ERROR
+      =================================================== */
 
       if (
         !response.ok ||
@@ -846,40 +674,49 @@ function Payment() {
       ) {
         throw new Error(
           data.message ||
-            "Unable to initialize payment."
+            "Unable to create your order."
         );
       }
 
       /* ===================================================
-         FLUTTERWAVE CHECKOUT URL
+         ORDER CREATED SUCCESSFULLY
       =================================================== */
 
-      const checkoutUrl =
-        data.payment?.checkoutUrl;
+      const createdOrder =
+        data.order;
 
-      if (!checkoutUrl) {
+      if (!createdOrder) {
         throw new Error(
-          "Flutterwave checkout URL was not returned."
+          "The order was created but no order details were returned."
         );
       }
 
+      setOrder(
+        createdOrder
+      );
+
       /* ===================================================
-         REDIRECT TO FLUTTERWAVE
+         CLEAR CART AFTER ORDER CREATION
+
+         Payment is NOT required to clear the cart because
+         the order has already been saved in MongoDB.
+
+         Stock is NOT deducted here.
       =================================================== */
 
-      window.location.href =
-        checkoutUrl;
-    } catch (paymentError) {
+      clearCart();
+
+    } catch (orderError) {
       console.error(
-        "Payment initialization failed:",
-        paymentError
+        "Order creation failed:",
+        orderError
       );
 
       setError(
-        paymentError.message ||
-          "Unable to initialize payment."
+        orderError.message ||
+          "Unable to create your order. Please try again."
       );
-
+    } finally {
       setProcessing(false);
     }
   };
@@ -902,23 +739,25 @@ function Payment() {
           </span>
 
           <h1>
-            Complete Your Payment
+            Complete Your Order
           </h1>
 
           <p>
-            No account or signup required.
             Enter your details below to
-            continue securely.
+            submit your order. Payment will
+            be arranged and confirmed by our
+            admin team.
           </p>
         </div>
 
         {/* =================================================
-            GUEST CUSTOMER INFORMATION
+            CUSTOMER INFORMATION
         ================================================= */}
 
         <div className="payment-customer-form">
 
           <div className="payment-card-header">
+
             <div>
               <span>
                 CUSTOMER INFORMATION
@@ -932,6 +771,7 @@ function Payment() {
             <div className="payment-secure-icon">
               <FiUser />
             </div>
+
           </div>
 
           <div className="payment-form-grid">
@@ -1017,6 +857,7 @@ function Payment() {
               </div>
 
               <FiCheckCircle />
+
             </div>
           )}
 
@@ -1037,13 +878,13 @@ function Payment() {
         )}
 
         {/* =================================================
-            PAYMENT LAYOUT
+            PAYMENT / ORDER LAYOUT
         ================================================= */}
 
         <div className="payment-layout">
 
           {/* ===============================================
-              PAYMENT CARD
+              ORDER / PAYMENT CARD
           =============================================== */}
 
           <div className="payment-card">
@@ -1052,11 +893,11 @@ function Payment() {
 
               <div>
                 <span>
-                  SECURE CHECKOUT
+                  ORDER CONFIRMATION
                 </span>
 
                 <h2>
-                  Payment Method
+                  Payment Arrangement
                 </h2>
               </div>
 
@@ -1066,30 +907,35 @@ function Payment() {
 
             </div>
 
-            {/* PAYMENT METHOD */}
+            {/* ===========================================
+                PAYMENT UNAVAILABLE NOTICE
+            =========================================== */}
 
             <div className="payment-method">
 
               <div className="payment-method-icon">
-                <FiCreditCard />
+                <FiClock />
               </div>
 
               <div>
                 <strong>
-                  Flutterwave
+                  Online Payment Temporarily Unavailable
                 </strong>
 
                 <p>
-                  You will be redirected
-                  to Flutterwave's secure
-                  checkout to complete
-                  your payment.
+                  Our online payment gateway is
+                  currently undergoing maintenance.
+                  Submit your order below and our
+                  admin team will contact you to
+                  arrange payment.
                 </p>
               </div>
 
             </div>
 
-            {/* AMOUNT */}
+            {/* ===========================================
+                AMOUNT
+            =========================================== */}
 
             <div className="payment-card-total">
 
@@ -1106,7 +952,9 @@ function Payment() {
 
             </div>
 
-            {/* PAY BUTTON */}
+            {/* ===========================================
+                SUBMIT ORDER BUTTON
+            =========================================== */}
 
             <button
               type="button"
@@ -1114,22 +962,24 @@ function Payment() {
               onClick={handlePayment}
               disabled={processing}
             >
-              <FiLock />
+              <FiPackage />
 
               {processing
-                ? "Connecting to Flutterwave..."
-                : `Pay $${formatMoney(
-                    paymentTotal
-                  )}`}
+                ? "Submitting Order..."
+                : "Submit Order"}
             </button>
+
+            {/* ===========================================
+                SECURITY / PAYMENT NOTE
+            =========================================== */}
 
             <p className="payment-security-note">
               <FiLock />
 
-              Secure guest checkout. Your
-              cart is cleared only after
-              Flutterwave payment verification
-              succeeds.
+              Your order is saved before
+              payment confirmation. Stock will
+              only be deducted after an admin
+              confirms payment.
             </p>
 
           </div>
@@ -1220,7 +1070,9 @@ function Payment() {
                 );
               })}
 
-              {/* TOTAL */}
+              {/* =========================================
+                  TOTAL
+              ========================================= */}
 
               <div className="payment-total">
 
