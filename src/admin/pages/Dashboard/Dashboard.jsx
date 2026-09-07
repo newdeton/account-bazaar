@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { io as createSocket } from "socket.io-client";
 
 import {
   FiAlertCircle,
@@ -337,6 +338,211 @@ function Dashboard() {
     useState("");
 
   /* =======================================================
+     REAL-TIME NOTIFICATIONS
+  ======================================================= */
+
+  const [notifications, setNotifications] =
+    useState([]);
+
+  const [notificationCount, setNotificationCount] =
+    useState(0);
+
+  const [showNotifications, setShowNotifications] =
+    useState(false);
+
+  const notificationAudioContextRef =
+    useState(() => ({ current: null }))[0];
+
+  const playNotificationSound =
+    useCallback(() => {
+      try {
+        const AudioContext =
+          window.AudioContext ||
+          window.webkitAudioContext;
+
+        if (!AudioContext) {
+          return;
+        }
+
+        if (
+          !notificationAudioContextRef.current
+        ) {
+          notificationAudioContextRef.current =
+            new AudioContext();
+        }
+
+        const audioContext =
+          notificationAudioContextRef.current;
+
+        if (
+          audioContext.state ===
+          "suspended"
+        ) {
+          audioContext.resume().catch(() => {});
+        }
+
+        const oscillator =
+          audioContext.createOscillator();
+
+        const gain =
+          audioContext.createGain();
+
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(
+          880,
+          audioContext.currentTime
+        );
+
+        oscillator.frequency.exponentialRampToValueAtTime(
+          1320,
+          audioContext.currentTime + 0.12
+        );
+
+        gain.gain.setValueAtTime(
+          0.0001,
+          audioContext.currentTime
+        );
+
+        gain.gain.exponentialRampToValueAtTime(
+          0.18,
+          audioContext.currentTime + 0.02
+        );
+
+        gain.gain.exponentialRampToValueAtTime(
+          0.0001,
+          audioContext.currentTime + 0.35
+        );
+
+        oscillator.connect(gain);
+        gain.connect(audioContext.destination);
+
+        oscillator.start();
+        oscillator.stop(
+          audioContext.currentTime + 0.35
+        );
+      } catch (error) {
+        console.warn(
+          "Notification sound could not play:",
+          error
+        );
+      }
+    }, [notificationAudioContextRef]);
+
+  const showBrowserNotification =
+    useCallback((notification) => {
+      if (
+        typeof window === "undefined" ||
+        !("Notification" in window)
+      ) {
+        return;
+      }
+
+      if (
+        Notification.permission !==
+        "granted"
+      ) {
+        return;
+      }
+
+      try {
+        const browserNotification =
+          new Notification(
+            notification.title ||
+              "Account Bazaar",
+            {
+              body:
+                notification.message ||
+                "New activity requires your attention.",
+              tag:
+                notification.orderId ||
+                notification.bookingId ||
+                notification.type ||
+                "account-bazaar",
+            }
+          );
+
+        browserNotification.onclick =
+          () => {
+            window.focus();
+            browserNotification.close();
+          };
+      } catch (error) {
+        console.warn(
+          "Browser notification could not be shown:",
+          error
+        );
+      }
+    }, []);
+
+  const requestNotificationPermission =
+    useCallback(async () => {
+      if (
+        typeof window === "undefined" ||
+        !("Notification" in window)
+      ) {
+        return;
+      }
+
+      if (
+        Notification.permission ===
+        "default"
+      ) {
+        try {
+          await Notification.requestPermission();
+        } catch (error) {
+          console.warn(
+            "Notification permission request failed:",
+            error
+          );
+        }
+      }
+    }, []);
+
+  const addRealtimeNotification =
+    useCallback(
+      (notification) => {
+        setNotifications(
+          (current) => [
+            {
+              ...notification,
+              id:
+                notification.id ||
+                `${notification.type || "notification"}-${
+                  notification.orderId ||
+                  notification.bookingId ||
+                  Date.now()
+                }-${Math.random()
+                  .toString(36)
+                  .slice(2, 7)}`,
+              receivedAt:
+                notification.receivedAt ||
+                new Date().toISOString(),
+            },
+            ...current,
+          ].slice(0, 30)
+        );
+
+        setNotificationCount(
+          (current) => current + 1
+        );
+
+        playNotificationSound();
+        showBrowserNotification(
+          notification
+        );
+      },
+      [
+        playNotificationSound,
+        showBrowserNotification,
+      ]
+    );
+
+  const markNotificationsRead =
+    useCallback(() => {
+      setNotificationCount(0);
+    }, []);
+
+  /* =======================================================
      LOAD LOCAL DASHBOARD DATA
      
      Orders are deliberately excluded because they now come
@@ -465,6 +671,62 @@ function Dashboard() {
   }, [
     loadLocalDashboardData,
     fetchOrders,
+  ]);
+
+  /* =======================================================
+     REAL-TIME SOCKET.IO CONNECTION
+
+     Orders are delivered immediately to the admin dashboard.
+     The 10-second refresh below remains as a fallback.
+  ======================================================= */
+
+  useEffect(() => {
+    const socket =
+      createSocket(API_URL, {
+        withCredentials: true,
+      });
+
+    socket.on("connect", () => {
+      console.log(
+        "Real-time notification connection established."
+      );
+
+      socket.emit("join-admin");
+
+      requestNotificationPermission();
+    });
+
+    socket.on(
+      "new-order",
+      (notification) => {
+        addRealtimeNotification(
+          notification
+        );
+
+        fetchOrders(false);
+      }
+    );
+
+    socket.on(
+      "connect_error",
+      (error) => {
+        console.warn(
+          "Real-time notification connection failed:",
+          error?.message || error
+        );
+      }
+    );
+
+    return () => {
+      socket.off("connect");
+      socket.off("new-order");
+      socket.off("connect_error");
+      socket.disconnect();
+    };
+  }, [
+    addRealtimeNotification,
+    fetchOrders,
+    requestNotificationPermission,
   ]);
 
   /* =======================================================
@@ -1268,17 +1530,224 @@ function Dashboard() {
 
         <div className="dashboard-heading-meta">
 
-          <div className="dashboard-identity-status">
+          <div
+            style={{
+              position: "relative",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+            }}
+          >
 
-            <FiShield />
+            <button
+              type="button"
+              onClick={() => {
+                setShowNotifications(
+                  (current) => !current
+                );
+                markNotificationsRead();
+                requestNotificationPermission();
+              }}
+              aria-label={
+                notificationCount > 0
+                  ? `${notificationCount} unread notifications`
+                  : "Notifications"
+              }
+              title="Notifications"
+              style={{
+                position: "relative",
+                width: "44px",
+                height: "44px",
+                borderRadius: "50%",
+                border: "1px solid rgba(0,0,0,0.08)",
+                background: "#fff",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                fontSize: "1.15rem",
+              }}
+            >
+              <span aria-hidden="true">
+                🔔
+              </span>
 
-            <span>
-              Customer identity system
-            </span>
+              {notificationCount > 0 && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: "-4px",
+                    right: "-4px",
+                    minWidth: "20px",
+                    height: "20px",
+                    padding: "0 5px",
+                    borderRadius: "999px",
+                    background: "#d92d20",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "0.68rem",
+                    fontWeight: 700,
+                    lineHeight: 1,
+                    border: "2px solid #fff",
+                  }}
+                >
+                  {notificationCount > 99
+                    ? "99+"
+                    : notificationCount}
+                </span>
+              )}
+            </button>
 
-            <strong>
-              Active
-            </strong>
+            {showNotifications && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "54px",
+                  right: 0,
+                  zIndex: 50,
+                  width: "min(380px, calc(100vw - 40px))",
+                  maxHeight: "420px",
+                  overflowY: "auto",
+                  background: "#fff",
+                  border: "1px solid rgba(0,0,0,0.08)",
+                  borderRadius: "14px",
+                  boxShadow:
+                    "0 18px 50px rgba(0,0,0,0.14)",
+                  padding: "12px",
+                }}
+              >
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "12px",
+                    padding: "6px 6px 12px",
+                  }}
+                >
+                  <strong>
+                    Notifications
+                  </strong>
+
+                  {notifications.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setNotifications([])
+                      }
+                      style={{
+                        border: 0,
+                        background: "transparent",
+                        cursor: "pointer",
+                        fontSize: "0.78rem",
+                        opacity: 0.65,
+                      }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+
+                {notifications.length === 0 ? (
+                  <div
+                    style={{
+                      padding: "28px 12px",
+                      textAlign: "center",
+                      opacity: 0.65,
+                      fontSize: "0.9rem",
+                    }}
+                  >
+                    No new notifications
+                  </div>
+                ) : (
+                  notifications.map(
+                    (notification) => (
+                      <div
+                        key={notification.id}
+                        style={{
+                          display: "flex",
+                          gap: "10px",
+                          padding: "12px 8px",
+                          borderTop:
+                            "1px solid rgba(0,0,0,0.06)",
+                        }}
+                      >
+                        <span
+                          aria-hidden="true"
+                          style={{
+                            fontSize: "1.1rem",
+                          }}
+                        >
+                          {notification.type ===
+                          "order"
+                            ? "🛒"
+                            : "🔔"}
+                        </span>
+
+                        <div
+                          style={{
+                            minWidth: 0,
+                          }}
+                        >
+                          <strong
+                            style={{
+                              display: "block",
+                              fontSize: "0.88rem",
+                            }}
+                          >
+                            {notification.title ||
+                              "New notification"}
+                          </strong>
+
+                          <p
+                            style={{
+                              margin: "4px 0 0",
+                              fontSize: "0.8rem",
+                              lineHeight: 1.4,
+                              opacity: 0.72,
+                            }}
+                          >
+                            {notification.message ||
+                              "New activity received."}
+                          </p>
+
+                          {notification.orderId && (
+                            <span
+                              style={{
+                                display: "block",
+                                marginTop: "5px",
+                                fontSize: "0.72rem",
+                                opacity: 0.55,
+                              }}
+                            >
+                              #{notification.orderId}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  )
+                )}
+
+              </div>
+            )}
+
+            <div className="dashboard-identity-status">
+
+              <FiShield />
+
+              <span>
+                Customer identity system
+              </span>
+
+              <strong>
+                Active
+              </strong>
+
+            </div>
 
           </div>
 

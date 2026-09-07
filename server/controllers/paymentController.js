@@ -12,6 +12,28 @@ const USD_TO_KES_RATE = Number(
 const PAYMENT_CURRENCY = "KES";
 
 /* =========================================================
+   REAL-TIME ADMIN NOTIFICATION
+========================================================= */
+
+const emitAdminNotification = (req, event, payload) => {
+  const io = req.app?.get("io");
+
+  if (!io) {
+    console.warn(
+      `Socket.IO is not configured. Skipping ${event} notification.`
+    );
+    return;
+  }
+
+  console.log(
+  `Admin notification emitted: ${event}`,
+  payload
+);
+
+io.to("admin").emit(event, payload);
+};
+
+/* =========================================================
    GENERATE ORDER ID
 ========================================================= */
 
@@ -598,6 +620,55 @@ export const createPayment = async (
       });
 
     /* =====================================================
+       REAL-TIME ADMIN NOTIFICATION
+    ===================================================== */
+
+    emitAdminNotification(req, "new-order", {
+      type: "order",
+
+      title:
+        "New Order Received",
+
+      message:
+        `${order.customer?.name || "A customer"} has placed a new order.`,
+
+      orderId:
+        order.orderId,
+
+      customerId:
+        order.customerId,
+
+      customer: {
+        name:
+          order.customer?.name || "",
+
+        email:
+          order.customer?.email || "",
+
+        phone:
+          order.customer?.phone || "",
+      },
+
+      totalUSD:
+        Number(order.totalUSD || 0),
+
+      totalKES:
+        Number(order.totalKES || 0),
+
+      paymentStatus:
+        order.payment?.status ||
+        "pending",
+
+      orderStatus:
+        order.status ||
+        "pending",
+
+      createdAt:
+        order.createdAt ||
+        new Date(),
+    });
+
+    /* =====================================================
        SUCCESS
 
        The order now exists in MongoDB.
@@ -611,9 +682,10 @@ export const createPayment = async (
       message:
         "Order submitted successfully. Online payment is temporarily unavailable. Please contact admin to arrange payment.",
 
-      order: formatOrder(
-        order
-      ),
+      order:
+        formatOrder(
+          order
+        ),
 
       payment: {
         orderId,

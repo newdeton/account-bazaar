@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+
 import {
   FiPlus,
   FiSearch,
@@ -18,11 +19,94 @@ import "./Proxies.css";
 const PROXY_STORAGE_KEY = "accountBazaarProxies";
 const PURCHASE_STORAGE_KEY = "accountBazaarPurchases";
 
+const PROXY_CATEGORIES = {
+  "Residential Proxies": [
+    "Rotating Residential",
+    "Static Residential / ISP",
+    "Dedicated Residential",
+  ],
+  "Datacenter Proxies": [
+    "Shared Datacenter",
+    "Dedicated Datacenter",
+    "IPv4 Datacenter",
+    "IPv6 Datacenter",
+  ],
+  "Mobile Proxies": [
+    "4G Mobile",
+    "5G Mobile",
+    "Rotating Mobile",
+    "Dedicated Mobile",
+  ],
+  "ISP Proxies": [
+    "Static ISP",
+    "Rotating ISP",
+    "Dedicated ISP",
+  ],
+  "Rotating Proxies": [
+    "Residential Rotation",
+    "Datacenter Rotation",
+    "Mobile Rotation",
+    "Automatic IP Rotation",
+  ],
+  "Static Proxies": [
+    "Static Residential",
+    "Static ISP",
+    "Static Datacenter",
+    "Dedicated Static",
+  ],
+  "Sneaker Proxies": [
+    "Residential Sneaker",
+    "Datacenter Sneaker",
+    "ISP Sneaker",
+  ],
+  "Social Media Proxies": [
+    "Instagram",
+    "Facebook",
+    "TikTok",
+    "X / Twitter",
+    "LinkedIn",
+  ],
+  "Web Scraping Proxies": [
+    "Residential Scraping",
+    "Datacenter Scraping",
+    "Rotating Scraping",
+    "SERP Proxies",
+  ],
+  "Premium Proxies": [
+    "Premium ISP",
+    "Premium Residential",
+    "Dedicated Premium",
+  ],
+};
+
+const LEGACY_PROXY_TYPES = ["Residential", "Datacenter", "Mobile"];
+
+function getCategoryForProxy(proxy) {
+  if (proxy?.category && PROXY_CATEGORIES[proxy.category]) {
+    return proxy.category;
+  }
+
+  const type = String(proxy?.type || "").toLowerCase();
+
+  if (type.includes("mobile")) return "Mobile Proxies";
+  if (type.includes("datacenter") || type.includes("data center")) {
+    return "Datacenter Proxies";
+  }
+
+  return "Residential Proxies";
+}
+
+function getProxyTypesForCategory(category) {
+  return PROXY_CATEGORIES[category] || [];
+}
+
 const defaultProxies = [
   {
     id: 1,
     name: "US Residential Proxy",
-    type: "Residential",
+    category: "Residential Proxies",
+    type: "Rotating Residential",
+    provider: "Premium Residential Provider",
     location: "United States",
     host: "us.proxy.example",
     port: "8001",
@@ -33,7 +117,9 @@ const defaultProxies = [
   {
     id: 2,
     name: "UK Datacenter Proxy",
-    type: "Datacenter",
+    category: "Datacenter Proxies",
+    type: "Dedicated Datacenter",
+    provider: "Premium Datacenter Provider",
     location: "United Kingdom",
     host: "uk.proxy.example",
     port: "9001",
@@ -44,7 +130,9 @@ const defaultProxies = [
   {
     id: 3,
     name: "Germany Mobile Proxy",
-    type: "Mobile",
+    category: "Mobile Proxies",
+    type: "4G Mobile",
+    provider: "Premium Mobile Provider",
     location: "Germany",
     host: "de.proxy.example",
     port: "7001",
@@ -56,7 +144,9 @@ const defaultProxies = [
 
 const emptyForm = {
   name: "",
-  type: "Residential",
+  category: "Residential Proxies",
+  type: "Rotating Residential",
+  provider: "",
   location: "",
   host: "",
   port: "",
@@ -109,6 +199,8 @@ function normalizePurchase(purchase, index) {
 
     category:
       purchase.category || "Proxies",
+    provider:
+      purchase.provider || "Provider not specified",
 
     price:
       Number(purchase.price) || 0,
@@ -129,6 +221,7 @@ function Proxies() {
   const [editingProxy, setEditingProxy] = useState(null);
 
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
 
   /* =====================================================
@@ -305,21 +398,31 @@ function Proxies() {
         String(proxy.location || "")
           .toLowerCase()
           .includes(query) ||
+        String(proxy.category || "")
+          .toLowerCase()
+          .includes(query) ||
         String(proxy.type || "")
+          .toLowerCase()
+          .includes(query) ||
+        String(proxy.provider || "")
           .toLowerCase()
           .includes(query) ||
         String(proxy.host || "")
           .toLowerCase()
           .includes(query);
 
+      const matchesCategory =
+        categoryFilter === "all" ||
+        getCategoryForProxy(proxy) === categoryFilter;
+
       const matchesType =
         typeFilter === "all" ||
         String(proxy.type || "").toLowerCase() ===
           typeFilter.toLowerCase();
 
-      return matchesSearch && matchesType;
+      return matchesSearch && matchesCategory && matchesType;
     });
-  }, [proxies, search, typeFilter]);
+  }, [proxies, search, categoryFilter, typeFilter]);
 
   /* =====================================================
      FORM FUNCTIONS
@@ -334,9 +437,18 @@ function Proxies() {
   const openEditForm = (proxy) => {
     setEditingProxy(proxy);
 
+    const category = getCategoryForProxy(proxy);
+    const legacyType = proxy.type || "";
+    const type =
+      getProxyTypesForCategory(category).includes(legacyType)
+        ? legacyType
+        : getProxyTypesForCategory(category)[0] || legacyType;
+
     setForm({
       name: proxy.name || "",
-      type: proxy.type || "Residential",
+      category,
+      type,
+      provider: proxy.provider || "",
       location: proxy.location || "",
       host: proxy.host || "",
       port: proxy.port || "",
@@ -358,10 +470,21 @@ function Proxies() {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    setForm((currentForm) => ({
-      ...currentForm,
-      [name]: value,
-    }));
+    setForm((currentForm) => {
+      if (name === "category") {
+        const nextTypes = getProxyTypesForCategory(value);
+        return {
+          ...currentForm,
+          category: value,
+          type: nextTypes[0] || "",
+        };
+      }
+
+      return {
+        ...currentForm,
+        [name]: value,
+      };
+    });
   };
 
   /* =====================================================
@@ -379,7 +502,18 @@ function Proxies() {
     const price = Number(form.price);
     const stock = Number(form.stock);
 
-    if (!name || !location || !host || !port) {
+    if (
+      !name ||
+      !form.category ||
+      !form.type ||
+      !location ||
+      !host ||
+      !port ||
+      !Number.isFinite(price) ||
+      price < 0 ||
+      !Number.isInteger(stock) ||
+      stock < 0
+    ) {
       return;
     }
 
@@ -389,7 +523,9 @@ function Proxies() {
         : Date.now(),
 
       name,
+      category: form.category,
       type: form.type,
+      provider: form.provider.trim(),
       location,
       host,
       port,
@@ -743,8 +879,8 @@ function Proxies() {
           <h1>Proxies</h1>
 
           <p>
-            Manage residential, datacenter and
-            mobile proxy inventory.
+            Manage residential, datacenter, mobile,
+            ISP, rotating and specialized proxy inventory.
           </p>
 
         </div>
@@ -771,7 +907,7 @@ function Proxies() {
 
           <input
             type="text"
-            placeholder="Search proxies, locations or hosts..."
+            placeholder="Search proxies, providers, locations or hosts..."
             value={search}
             onChange={(e) =>
               setSearch(e.target.value)
@@ -829,7 +965,9 @@ function Proxies() {
           <thead>
             <tr>
               <th>Proxy</th>
+              <th>Category</th>
               <th>Type</th>
+              <th>Provider</th>
               <th>Location</th>
               <th>Host</th>
               <th>Price</th>
@@ -873,14 +1011,28 @@ function Proxies() {
 
                   </td>
 
+                  {/* CATEGORY */}
+
+                  <td>
+                    <span className="proxy-category-badge">
+                      {getCategoryForProxy(proxy)}
+                    </span>
+                  </td>
+
                   {/* TYPE */}
 
                   <td>
-
                     <span className="proxy-type-badge">
                       {proxy.type}
                     </span>
+                  </td>
 
+                  {/* PROVIDER */}
+
+                  <td>
+                    <span className="proxy-provider">
+                      {proxy.provider || "—"}
+                    </span>
                   </td>
 
                   {/* LOCATION */}
@@ -991,7 +1143,7 @@ function Proxies() {
               <tr>
 
                 <td
-                  colSpan="8"
+                  colSpan="10"
                   className="proxies-empty"
                 >
                   <FiSearch />
@@ -1053,8 +1205,8 @@ function Proxies() {
 
                 <p>
                   {editingProxy
-                    ? "Update proxy inventory details."
-                    : "Add a new proxy to your marketplace."}
+                    ? "Update category, provider and proxy inventory details."
+                    : "Add a new categorized proxy to your marketplace."}
                 </p>
 
               </div>
@@ -1089,11 +1241,37 @@ function Proxies() {
                     name="name"
                     value={form.name}
                     onChange={handleChange}
-                    placeholder="e.g. US Residential Proxy"
+                    placeholder="e.g. US Rotating Residential"
                     required
                   />
 
                 </div>
+
+                <div className="proxy-form-group">
+
+                  <label>
+                    Proxy Category
+                  </label>
+
+                  <select
+                    name="category"
+                    value={form.category}
+                    onChange={handleChange}
+                  >
+                    {Object.keys(PROXY_CATEGORIES).map(
+                      (category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      )
+                    )}
+                  </select>
+
+                </div>
+
+              </div>
+
+              <div className="proxy-form-row">
 
                 <div className="proxy-form-group">
 
@@ -1106,20 +1284,30 @@ function Proxies() {
                     value={form.type}
                     onChange={handleChange}
                   >
-
-                    <option>
-                      Residential
-                    </option>
-
-                    <option>
-                      Datacenter
-                    </option>
-
-                    <option>
-                      Mobile
-                    </option>
-
+                    {getProxyTypesForCategory(form.category).map(
+                      (type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      )
+                    )}
                   </select>
+
+                </div>
+
+                <div className="proxy-form-group">
+
+                  <label>
+                    Provider
+                  </label>
+
+                  <input
+                    type="text"
+                    name="provider"
+                    value={form.provider}
+                    onChange={handleChange}
+                    placeholder="e.g. Bright Data"
+                  />
 
                 </div>
 

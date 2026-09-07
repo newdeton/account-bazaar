@@ -601,6 +601,26 @@ function Training() {
                       Other
                     </option>
 
+                    <option>
+                      Transcription
+                    </option>
+
+                    <option>
+                      Chat moderation
+                    </option>
+
+                    <option>
+                      Surveys
+                    </option>
+
+                    <option>
+                      AI Training
+                    </option>
+
+                    <option>
+                      Data annotation
+                    </option>
+
                   </select>
 
                 </div>

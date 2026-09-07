@@ -27,6 +27,12 @@ const { default: helmet } =
 const { default: rateLimit } =
   await import("express-rate-limit");
 
+const { createServer } =
+  await import("http");
+
+const { Server } =
+  await import("socket.io");
+
 const { default: productRoutes } =
   await import("./routes/productRoutes.js");
 
@@ -47,6 +53,73 @@ const app = express();
 
 const PORT =
   process.env.PORT || 5000;
+
+/* =========================================================
+   HTTP SERVER
+========================================================= */
+
+const httpServer =
+  createServer(app);
+
+/* =========================================================
+   SOCKET.IO
+========================================================= */
+
+const io =
+  new Server(httpServer, {
+    cors: {
+      origin:
+        process.env.CLIENT_URL,
+      credentials: true,
+    },
+  });
+
+/* =========================================================
+   MAKE SOCKET.IO AVAILABLE TO CONTROLLERS
+========================================================= */
+
+app.set(
+  "io",
+  io
+);
+
+/* =========================================================
+   SOCKET CONNECTIONS
+========================================================= */
+
+io.on(
+  "connection",
+  (socket) => {
+    console.log(
+      `Socket connected: ${socket.id}`
+    );
+
+    /*
+      For now, the frontend will explicitly tell
+      the server when the connected user is an admin.
+    */
+
+    socket.on(
+      "join-admin",
+      () => {
+        socket.join("admin");
+
+        console.log(
+          `Admin joined notification room: ${socket.id}`
+        );
+      }
+    );
+
+    socket.on(
+      "disconnect",
+      (reason) => {
+        console.log(
+          `Socket disconnected: ${socket.id} - ${reason}`
+        );
+      }
+    );
+  }
+);
 
 /* =========================================================
    DATABASE
@@ -203,11 +276,15 @@ app.use(
    START SERVER
 ========================================================= */
 
-app.listen(
+httpServer.listen(
   PORT,
   () => {
     console.log(
       `Account Bazaar API running on http://localhost:${PORT}`
+    );
+
+    console.log(
+      "Real-time notifications: Socket.IO enabled"
     );
   }
 );

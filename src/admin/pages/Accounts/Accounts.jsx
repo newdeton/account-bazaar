@@ -27,12 +27,83 @@ const ACCOUNTS_STORAGE_KEY = "accountBazaarAccounts";
 const PURCHASES_STORAGE_KEY = "purchases";
 
 /* =========================================================
+   ACCOUNT CATEGORIES
+========================================================= */
+
+const ACCOUNT_CATEGORIES = {
+  "Chat Moderation": [
+    "Cloudworkers",
+    "The Texting Factory",
+    "Muzio",
+    "E-Moderators",
+    "Chatwork",
+  ],
+  "AI Training": [
+    "Handshake",
+    "Outlier",
+    "Snorkel",
+    "Mindrift",
+    "Remotasks",
+  ],
+  Surveys: [
+    "Prolific",
+    "CloudResearch Connect",
+  ],
+  "Academic Writing": [
+    "Atlantic Writers",
+    "Academia-Research",
+    "Writers Hub",
+    "Writedom",
+    "WriterBay",
+    "StudyPool",
+  ],
+  Transcription: [
+    "GoTranscript",
+    "TranscribeMe",
+    "Scribie",
+  ],
+};
+
+const LEGACY_PLATFORMS = [
+  "Google",
+  "Instagram",
+  "Facebook",
+  "Twitter / X",
+  "TikTok",
+];
+
+const ACCOUNT_PLATFORMS = Object.values(ACCOUNT_CATEGORIES).flat();
+
+const getCategoryForPlatform = (platform) => {
+  const value = String(platform || "").trim();
+
+  for (const [category, platforms] of Object.entries(
+    ACCOUNT_CATEGORIES
+  )) {
+    if (platforms.includes(value)) {
+      return category;
+    }
+  }
+
+  return "Other";
+};
+
+const getPlatformsForCategory = (category) => {
+  if (ACCOUNT_CATEGORIES[category]) {
+    return ACCOUNT_CATEGORIES[category];
+  }
+
+  return LEGACY_PLATFORMS;
+};
+
+/* =========================================================
    DEFAULT INVENTORY
 ========================================================= */
 
 const defaultAccounts = [
   {
     id: 1,
+    category: "Other",
     platform: "Google",
     name: "Google Workspace Account",
     username: "account001@gmail.com",
@@ -44,6 +115,7 @@ const defaultAccounts = [
   },
   {
     id: 2,
+    category: "Other",
     platform: "Instagram",
     name: "Instagram Account",
     username: "@account_store01",
@@ -55,6 +127,7 @@ const defaultAccounts = [
   },
   {
     id: 3,
+    category: "Other",
     platform: "Facebook",
     name: "Facebook Account",
     username: "facebook.account01",
@@ -71,7 +144,8 @@ const defaultAccounts = [
 ========================================================= */
 
 const emptyForm = {
-  platform: "Google",
+  category: "Chat Moderation",
+  platform: "Cloudworkers",
   name: "",
   username: "",
   password: "",
@@ -341,11 +415,16 @@ function Accounts() {
         account.platform || ""
       ).toLowerCase();
 
+      const category = String(
+        account.category || getCategoryForPlatform(account.platform)
+      ).toLowerCase();
+
       const matchesSearch =
         !searchValue ||
         name.includes(searchValue) ||
         username.includes(searchValue) ||
-        platform.includes(searchValue);
+        platform.includes(searchValue) ||
+        category.includes(searchValue);
 
       const matchesPlatform =
         platformFilter === "all" ||
@@ -386,7 +465,8 @@ function Accounts() {
     setEditingAccount(account);
 
     setForm({
-      platform: account.platform || "Google",
+      category: account.category || getCategoryForPlatform(account.platform),
+      platform: account.platform || getPlatformsForCategory(account.category || getCategoryForPlatform(account.platform))[0],
       name: account.name || "",
       username: account.username || "",
       password: "",
@@ -413,6 +493,18 @@ function Accounts() {
       name,
       value,
     } = event.target;
+
+    if (name === "category") {
+      const platforms = getPlatformsForCategory(value);
+
+      setForm((current) => ({
+        ...current,
+        category: value,
+        platform: platforms[0] || "",
+      }));
+
+      return;
+    }
 
     setForm((current) => ({
       ...current,
@@ -510,6 +602,7 @@ function Accounts() {
 
     const updatedAccount = {
       id: accountId,
+      category: form.category || getCategoryForPlatform(form.platform),
       platform: form.platform,
       name,
       username,
@@ -840,7 +933,7 @@ function Accounts() {
 
           <input
             type="text"
-            placeholder="Search by name, username or platform..."
+            placeholder="Search by name, username, platform or category..."
             value={search}
             onChange={(event) =>
               setSearch(
@@ -879,25 +972,34 @@ function Accounts() {
               All Platforms
             </option>
 
-            <option value="google">
-              Google
-            </option>
+            {Object.entries(ACCOUNT_CATEGORIES).map(
+              ([category, platforms]) => (
+                <optgroup
+                  key={category}
+                  label={category}
+                >
+                  {platforms.map((platform) => (
+                    <option
+                      key={platform}
+                      value={platform.toLowerCase()}
+                    >
+                      {platform}
+                    </option>
+                  ))}
+                </optgroup>
+              )
+            )}
 
-            <option value="instagram">
-              Instagram
-            </option>
-
-            <option value="facebook">
-              Facebook
-            </option>
-
-            <option value="twitter / x">
-              Twitter / X
-            </option>
-
-            <option value="tiktok">
-              TikTok
-            </option>
+            <optgroup label="Legacy / Other">
+              {LEGACY_PLATFORMS.map((platform) => (
+                <option
+                  key={platform}
+                  value={platform.toLowerCase()}
+                >
+                  {platform}
+                </option>
+              ))}
+            </optgroup>
           </select>
 
         </div>
@@ -989,6 +1091,7 @@ function Accounts() {
             <thead>
               <tr>
                 <th>Account</th>
+                <th>Category</th>
                 <th>Platform</th>
                 <th>Username</th>
                 <th>Price</th>
@@ -1043,6 +1146,13 @@ function Accounts() {
 
                         </div>
 
+                      </td>
+
+                      <td>
+                        <span className="platform-badge">
+                          {account.category ||
+                            getCategoryForPlatform(account.platform)}
+                        </span>
                       </td>
 
                       <td>
@@ -1148,7 +1258,7 @@ function Accounts() {
 
                 <tr>
                   <td
-                    colSpan="7"
+                    colSpan="8"
                     className="accounts-empty"
                   >
                     <FiAlertCircle />
@@ -1474,6 +1584,35 @@ function Accounts() {
                 <div className="account-form-group">
 
                   <label>
+                    Category
+                  </label>
+
+                  <select
+                    name="category"
+                    value={form.category}
+                    onChange={handleChange}
+                  >
+                    {Object.keys(ACCOUNT_CATEGORIES).map(
+                      (category) => (
+                        <option
+                          key={category}
+                          value={category}
+                        >
+                          {category}
+                        </option>
+                      )
+                    )}
+
+                    <option value="Other">
+                      Other / Legacy
+                    </option>
+                  </select>
+
+                </div>
+
+                <div className="account-form-group">
+
+                  <label>
                     Platform
                   </label>
 
@@ -1482,28 +1621,23 @@ function Accounts() {
                     value={form.platform}
                     onChange={handleChange}
                   >
-                    <option>
-                      Google
-                    </option>
-
-                    <option>
-                      Instagram
-                    </option>
-
-                    <option>
-                      Facebook
-                    </option>
-
-                    <option>
-                      Twitter / X
-                    </option>
-
-                    <option>
-                      TikTok
-                    </option>
+                    {getPlatformsForCategory(
+                      form.category
+                    ).map((platform) => (
+                      <option
+                        key={platform}
+                        value={platform}
+                      >
+                        {platform}
+                      </option>
+                    ))}
                   </select>
 
                 </div>
+
+              </div>
+
+              <div className="account-form-row">
 
                 <div className="account-form-group">
 
