@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+
 import {
   FiAlertCircle,
   FiBox,
@@ -20,11 +20,11 @@ import {
 import "./Accounts.css";
 
 /* =========================================================
-   STORAGE
+   API
 ========================================================= */
 
-const ACCOUNTS_STORAGE_KEY = "accountBazaarAccounts";
-const PURCHASES_STORAGE_KEY = "purchases";
+const API_URL =
+  `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api`;
 
 /* =========================================================
    ACCOUNT CATEGORIES
@@ -97,49 +97,6 @@ const getPlatformsForCategory = (category) => {
 };
 
 /* =========================================================
-   DEFAULT INVENTORY
-========================================================= */
-
-const defaultAccounts = [
-  {
-    id: 1,
-    category: "Other",
-    platform: "Google",
-    name: "Google Workspace Account",
-    username: "account001@gmail.com",
-    password: "",
-    price: 25,
-    status: "Available",
-    image: "",
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 2,
-    category: "Other",
-    platform: "Instagram",
-    name: "Instagram Account",
-    username: "@account_store01",
-    password: "",
-    price: 20,
-    status: "Available",
-    image: "",
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 3,
-    category: "Other",
-    platform: "Facebook",
-    name: "Facebook Account",
-    username: "facebook.account01",
-    password: "",
-    price: 18,
-    status: "Sold",
-    image: "",
-    createdAt: new Date().toISOString(),
-  },
-];
-
-/* =========================================================
    EMPTY FORM
 ========================================================= */
 
@@ -152,52 +109,6 @@ const emptyForm = {
   price: "",
   status: "Available",
   image: "",
-};
-
-/* =========================================================
-   SAFE STORAGE READER
-========================================================= */
-
-const readStorageArray = (key) => {
-  try {
-    const saved = localStorage.getItem(key);
-
-    if (!saved) {
-      return [];
-    }
-
-    const parsed = JSON.parse(saved);
-
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (error) {
-    console.error(`Failed to read ${key}:`, error);
-    return [];
-  }
-};
-
-/* =========================================================
-   STORAGE WRITER
-========================================================= */
-
-const writeStorage = (key, value) => {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-    return true;
-  } catch (error) {
-    console.error(`Failed to write ${key}:`, error);
-    return false;
-  }
-};
-
-/* =========================================================
-   ID GENERATOR
-========================================================= */
-
-const generateAccountId = () => {
-  return `ACC-${Date.now()}-${Math.random()
-    .toString(36)
-    .substring(2, 7)
-    .toUpperCase()}`;
 };
 
 /* =========================================================
@@ -223,20 +134,7 @@ const getStatusClass = (status) => {
 ========================================================= */
 
 function Accounts() {
-  const [accounts, setAccounts] = useState(() => {
-    const saved = readStorageArray(ACCOUNTS_STORAGE_KEY);
-
-    if (saved.length > 0) {
-      return saved;
-    }
-
-    writeStorage(
-      ACCOUNTS_STORAGE_KEY,
-      defaultAccounts
-    );
-
-    return defaultAccounts;
-  });
+  const [accounts, setAccounts] = useState([]);
 
   const [customerPurchases, setCustomerPurchases] =
     useState([]);
@@ -266,38 +164,174 @@ function Accounts() {
   const [form, setForm] = useState(emptyForm);
 
   /* =======================================================
-     LOAD PURCHASES
+     LOAD DATABASE DATA
   ======================================================= */
 
-  const loadPurchases = () => {
-    const savedPurchases = readStorageArray(
-      PURCHASES_STORAGE_KEY
-    );
+  const getProductIdentifier = (product) =>
+    product?._id ||
+    product?.productId ||
+    product?.id ||
+    "";
 
-    const accountPurchases = savedPurchases.filter(
-      (purchase) => {
-        const category = String(
-          purchase.category || ""
-        )
-          .trim()
-          .toLowerCase();
+  const getAccountStatus = (account) => {
+    const storedStatus =
+      account?.metadata?.accountStatus ||
+      account?.status;
 
-        const productType = String(
-          purchase.productType || ""
-        )
-          .trim()
-          .toLowerCase();
+    if (storedStatus) {
+      return storedStatus;
+    }
 
-        return (
-          category === "account" ||
-          category === "accounts" ||
-          productType === "account" ||
-          productType === "accounts"
+    return Number(account?.stock || 0) > 0
+      ? "Available"
+      : "Sold";
+  };
+
+  const normalizeAccount = (product) => ({
+    ...product,
+    id:
+      product?._id ||
+      product?.productId ||
+      product?.id,
+    category:
+      product?.metadata?.accountCategory ||
+      product?.accountCategory ||
+      getCategoryForPlatform(
+        product?.metadata?.platform ||
+          product?.platform
+      ),
+    platform:
+      product?.metadata?.platform ||
+      product?.platform ||
+      "Unknown",
+    username:
+      product?.metadata?.username ||
+      product?.username ||
+      "",
+    password:
+      product?.metadata?.password ||
+      product?.password ||
+      "",
+    status: getAccountStatus(product),
+    image:
+      product?.image ||
+      product?.images?.[0] ||
+      "",
+  });
+
+  const loadAccounts = async () => {
+    try {
+      const response = await fetch(
+        `${API_URL}/products?category=accounts`
+      );
+
+      let data;
+
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(
+          "The server returned an invalid response."
         );
       }
-    );
 
-    setCustomerPurchases(accountPurchases);
+      if (!response.ok || !data?.success) {
+        throw new Error(
+          data?.message ||
+            "Unable to load accounts."
+        );
+      }
+
+      const databaseAccounts =
+        Array.isArray(data.products)
+          ? data.products
+              .filter(
+                (product) =>
+                  String(
+                    product?.category || ""
+                  ).toLowerCase() ===
+                  "accounts"
+              )
+              .map(normalizeAccount)
+          : [];
+
+      setAccounts(databaseAccounts);
+    } catch (error) {
+      console.error(
+        "Load accounts error:",
+        error
+      );
+
+      setAccounts([]);
+
+      throw error;
+    }
+  };
+
+  const loadPurchases = async () => {
+    try {
+      const response = await fetch(
+        `${API_URL}/payments/orders`
+      );
+
+      let data;
+
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(
+          "The server returned an invalid response."
+        );
+      }
+
+      if (!response.ok || !data?.success) {
+        throw new Error(
+          data?.message ||
+            "Unable to load customer orders."
+        );
+      }
+
+      const orders =
+        Array.isArray(data.orders)
+          ? data.orders
+          : [];
+
+      const accountOrders =
+        orders.filter((order) => {
+          const items = Array.isArray(
+            order?.items
+          )
+            ? order.items
+            : [];
+
+          return items.some((item) => {
+            const category = String(
+              item?.category ||
+                item?.productCategory ||
+                item?.type ||
+                ""
+            )
+              .trim()
+              .toLowerCase();
+
+            return (
+              category === "account" ||
+              category === "accounts"
+            );
+          });
+        });
+
+      setCustomerPurchases(
+        accountOrders
+      );
+    } catch (error) {
+      console.error(
+        "Load customer orders error:",
+        error
+      );
+
+      setCustomerPurchases([]);
+    }
   };
 
   /* =======================================================
@@ -305,49 +339,31 @@ function Accounts() {
   ======================================================= */
 
   useEffect(() => {
-    loadPurchases();
+    let cancelled = false;
 
-    const handleStorageChange = () => {
-      const savedAccounts = readStorageArray(
-        ACCOUNTS_STORAGE_KEY
-      );
-
-      if (savedAccounts.length > 0) {
-        setAccounts(savedAccounts);
+    const refresh = async () => {
+      try {
+        await Promise.all([
+          loadAccounts(),
+          loadPurchases(),
+        ]);
+      } catch {
+        if (cancelled) return;
       }
-
-      loadPurchases();
     };
 
-    window.addEventListener(
-      "storage",
-      handleStorageChange
+    refresh();
+
+    const interval = setInterval(
+      refresh,
+      10000
     );
 
-    const interval = setInterval(() => {
-      loadPurchases();
-    }, 1500);
-
     return () => {
-      window.removeEventListener(
-        "storage",
-        handleStorageChange
-      );
-
+      cancelled = true;
       clearInterval(interval);
     };
   }, []);
-
-  /* =======================================================
-     SAVE INVENTORY
-  ======================================================= */
-
-  useEffect(() => {
-    writeStorage(
-      ACCOUNTS_STORAGE_KEY,
-      accounts
-    );
-  }, [accounts]);
 
   /* =======================================================
      ACCOUNT STATISTICS
@@ -465,14 +481,34 @@ function Accounts() {
     setEditingAccount(account);
 
     setForm({
-      category: account.category || getCategoryForPlatform(account.platform),
-      platform: account.platform || getPlatformsForCategory(account.category || getCategoryForPlatform(account.platform))[0],
+      category:
+        account.category ||
+        account.metadata?.accountCategory ||
+        getCategoryForPlatform(
+          account.platform ||
+            account.metadata?.platform
+        ),
+      platform:
+        account.platform ||
+        account.metadata?.platform ||
+        getPlatformsForCategory(
+          account.category ||
+            account.metadata?.accountCategory ||
+            "Other"
+        )[0],
       name: account.name || "",
-      username: account.username || "",
+      username:
+        account.username ||
+        account.metadata?.username ||
+        "",
       password: "",
       price: account.price ?? "",
-      status: account.status || "Available",
-      image: account.image || "",
+      status:
+        getAccountStatus(account),
+      image:
+        account.image ||
+        account.images?.[0] ||
+        "",
     });
 
     setShowPassword(false);
@@ -560,11 +596,12 @@ function Accounts() {
      SAVE ACCOUNT
   ======================================================= */
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     const name = form.name.trim();
     const username = form.username.trim();
+    const password = form.password.trim();
     const price = Number(form.price);
 
     if (!name) {
@@ -586,77 +623,178 @@ function Accounts() {
       return;
     }
 
-    if (
-      !editingAccount &&
-      !form.password.trim()
-    ) {
+    if (!editingAccount && !password) {
       alert(
         "Please enter the account password."
       );
       return;
     }
 
-    const accountId =
-      editingAccount?.id ||
-      generateAccountId();
+    const category =
+      form.category ||
+      getCategoryForPlatform(
+        form.platform
+      );
 
-    const updatedAccount = {
-      id: accountId,
-      category: form.category || getCategoryForPlatform(form.platform),
-      platform: form.platform,
-      name,
+    const platform =
+      form.platform || "";
+
+    const status =
+      form.status || "Available";
+
+    const existingMetadata =
+      editingAccount?.metadata &&
+      typeof editingAccount.metadata ===
+        "object"
+        ? editingAccount.metadata
+        : {};
+
+    const metadata = {
+      ...existingMetadata,
+      accountCategory: category,
+      platform,
       username,
-      price,
-      status: form.status,
-      image: form.image || "",
-      createdAt:
-        editingAccount?.createdAt ||
-        new Date().toISOString(),
-      updatedAt:
-        new Date().toISOString(),
+      accountStatus: status,
     };
 
-    if (editingAccount) {
-      setAccounts((current) =>
-        current.map((account) =>
-          account.id === editingAccount.id
-            ? {
-                ...account,
-                ...updatedAccount,
-
-                password:
-                  form.password.trim() ||
-                  account.password ||
-                  "",
-              }
-            : account
-        )
-      );
-
-      alert(
-        "Account updated successfully."
-      );
-    } else {
-      setAccounts((current) => [
-        updatedAccount,
-        ...current,
-      ]);
-
-      alert(
-        "Account added successfully."
-      );
+    if (password) {
+      metadata.password = password;
     }
 
-    closeForm();
+    const slugBase =
+      `${name}-${platform}`
+        .toLowerCase()
+        .replace(
+          /[^a-z0-9]+/g,
+          "-"
+        )
+        .replace(
+          /^-+|-+$/g,
+          "");
+
+    const payload = {
+      name,
+      description:
+        `${name} - ${platform} account`,
+      category: "accounts",
+      price,
+      currency: "USD",
+      image: form.image || "",
+      images: form.image
+        ? [form.image]
+        : [],
+      stock:
+        normalizeStatus(status) ===
+        "available"
+          ? 1
+          : 0,
+      unlimitedStock: false,
+      featured: false,
+      deliveryType: "digital",
+      metadata,
+    };
+
+    try {
+      let response;
+
+      if (editingAccount) {
+        const identifier =
+          getProductIdentifier(
+            editingAccount
+          );
+
+        if (!identifier) {
+          throw new Error(
+            "Unable to identify the account."
+          );
+        }
+
+        response = await fetch(
+          `${API_URL}/products/${encodeURIComponent(
+            identifier
+          )}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              ...payload,
+              // Keep the existing slug so
+              // editing never creates a
+              // duplicate-slug error.
+              slug:
+                editingAccount.slug ||
+                slugBase,
+            }),
+          }
+        );
+      } else {
+        response = await fetch(
+          `${API_URL}/products`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              ...payload,
+              slug: slugBase,
+            }),
+          }
+        );
+      }
+
+      let data;
+
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(
+          "The server returned an invalid response."
+        );
+      }
+
+      if (!response.ok || !data?.success) {
+        throw new Error(
+          data?.message ||
+            "Unable to save account."
+        );
+      }
+
+      await loadAccounts();
+      closeForm();
+
+      alert(
+        editingAccount
+          ? "Account updated successfully."
+          : "Account added successfully."
+      );
+    } catch (error) {
+      console.error(
+        "Save account error:",
+        error
+      );
+
+      alert(
+        error.message ||
+          "Unable to save the account. Please try again."
+      );
+    }
   };
 
   /* =======================================================
      DELETE ACCOUNT
   ======================================================= */
 
-  const deleteAccount = (id) => {
+  const deleteAccount = async (id) => {
     const account = accounts.find(
-      (item) => item.id === id
+      (item) =>
+        String(
+          getProductIdentifier(item)
+        ) === String(id)
     );
 
     if (!account) {
@@ -664,87 +802,223 @@ function Accounts() {
     }
 
     const confirmed = window.confirm(
-      `Delete "${account.name}" from the inventory?`
+      `Delete "${account.name}" from the marketplace inventory?`
     );
 
     if (!confirmed) {
       return;
     }
 
-    setAccounts((current) =>
-      current.filter(
-        (item) => item.id !== id
-      )
-    );
+    try {
+      const identifier =
+        getProductIdentifier(account);
+
+      if (!identifier) {
+        throw new Error(
+          "Unable to identify the account."
+        );
+      }
+
+      const response = await fetch(
+        `${API_URL}/products/${encodeURIComponent(
+          identifier
+        )}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      let data;
+
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(
+          "The server returned an invalid response."
+        );
+      }
+
+      if (!response.ok || !data?.success) {
+        throw new Error(
+          data?.message ||
+            "Unable to delete account."
+        );
+      }
+
+      await loadAccounts();
+
+      alert(
+        "Account removed successfully."
+      );
+    } catch (error) {
+      console.error(
+        "Delete account error:",
+        error
+      );
+
+      alert(
+        error.message ||
+          "Unable to delete the account. Please try again."
+      );
+    }
   };
 
   /* =======================================================
      UPDATE ACCOUNT STATUS
   ======================================================= */
 
-  const updateAccountStatus = (
+  const updateAccountStatus = async (
     id,
     status
   ) => {
-    setAccounts((current) =>
-      current.map((account) =>
-        account.id === id
-          ? {
-              ...account,
-              status,
-              updatedAt:
-                new Date().toISOString(),
-            }
-          : account
-      )
+    const account = accounts.find(
+      (item) =>
+        String(
+          getProductIdentifier(item)
+        ) === String(id)
     );
+
+    if (!account) {
+      return;
+    }
+
+    try {
+      const identifier =
+        getProductIdentifier(account);
+
+      const metadata =
+        account.metadata &&
+        typeof account.metadata ===
+          "object"
+          ? account.metadata
+          : {};
+
+      const response = await fetch(
+        `${API_URL}/products/${encodeURIComponent(
+          identifier
+        )}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            stock:
+              normalizeStatus(status) ===
+              "available"
+                ? 1
+                : 0,
+            metadata: {
+              ...metadata,
+              accountStatus: status,
+            },
+          }),
+        }
+      );
+
+      let data;
+
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(
+          "The server returned an invalid response."
+        );
+      }
+
+      if (!response.ok || !data?.success) {
+        throw new Error(
+          data?.message ||
+            "Unable to update account status."
+        );
+      }
+
+      await loadAccounts();
+    } catch (error) {
+      console.error(
+        "Update account status error:",
+        error
+      );
+
+      alert(
+        error.message ||
+          "Unable to update the account status."
+      );
+
+      await loadAccounts();
+    }
   };
 
   /* =======================================================
      PURCHASE STATUS
   ======================================================= */
 
-  const updatePurchaseStatus = (
+  const updatePurchaseStatus = async (
     purchaseId,
     status
   ) => {
-    const purchases = readStorageArray(
-      PURCHASES_STORAGE_KEY
-    );
+    const normalizedStatus =
+      String(status || "")
+        .trim()
+        .toLowerCase();
 
-    const updatedPurchases =
-      purchases.map((purchase) => {
-        const id =
-          purchase.purchaseId ||
-          purchase.id;
-
-        if (String(id) !== String(purchaseId)) {
-          return purchase;
+    try {
+      const response = await fetch(
+        `${API_URL}/payments/orders/${encodeURIComponent(
+          purchaseId
+        )}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            status:
+              normalizedStatus,
+          }),
         }
+      );
 
-        return {
-          ...purchase,
-          status,
-          updatedAt:
-            new Date().toISOString(),
-        };
-      });
+      let data;
 
-    if (
-      writeStorage(
-        PURCHASES_STORAGE_KEY,
-        updatedPurchases
-      )
-    ) {
-      loadPurchases();
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(
+          "The server returned an invalid response."
+        );
+      }
 
-      setSelectedPurchase((current) =>
-        current
-          ? {
-              ...current,
-              status,
-            }
-          : null
+      if (!response.ok || !data?.success) {
+        throw new Error(
+          data?.message ||
+            "Unable to update order status."
+        );
+      }
+
+      await loadPurchases();
+
+      setSelectedPurchase(
+        (current) =>
+          current
+            ? {
+                ...current,
+                status:
+                  normalizedStatus,
+              }
+            : null
+      );
+    } catch (error) {
+      console.error(
+        "Update purchase status error:",
+        error
+      );
+
+      alert(
+        error.message ||
+          "Unable to update the purchase status."
       );
     }
   };
@@ -1037,19 +1311,7 @@ function Accounts() {
           type="button"
           className="refresh-accounts-button"
           onClick={() => {
-            const savedAccounts =
-              readStorageArray(
-                ACCOUNTS_STORAGE_KEY
-              );
-
-            if (
-              savedAccounts.length > 0
-            ) {
-              setAccounts(
-                savedAccounts
-              );
-            }
-
+            loadAccounts();
             loadPurchases();
           }}
           title="Refresh"
@@ -1107,7 +1369,7 @@ function Accounts() {
                 filteredAccounts.map(
                   (account) => (
 
-                    <tr key={account.id}>
+                    <tr key={getProductIdentifier(account)}>
 
                       <td>
 
@@ -1188,7 +1450,7 @@ function Accounts() {
                           }
                           onChange={(event) =>
                             updateAccountStatus(
-                              account.id,
+                              getProductIdentifier(account),
                               event.target.value
                             )
                           }
@@ -1239,7 +1501,7 @@ function Accounts() {
                             title="Delete Account"
                             onClick={() =>
                               deleteAccount(
-                                account.id
+                                getProductIdentifier(account)
                               )
                             }
                           >
@@ -1337,27 +1599,45 @@ function Accounts() {
                 customerPurchases.map(
                   (purchase, index) => {
 
+                    const purchaseItem =
+                      Array.isArray(purchase?.items)
+                        ? purchase.items.find((item) => {
+                            const category = String(
+                              item?.category ||
+                                item?.productCategory ||
+                                item?.type ||
+                                ""
+                            )
+                              .trim()
+                              .toLowerCase();
+
+                            return (
+                              category === "account" ||
+                              category === "accounts"
+                            );
+                          }) || purchase.items[0]
+                        : null;
+
                     const purchaseId =
-                      purchase.purchaseId ||
+                      purchase.orderId ||
                       purchase.id ||
                       `purchase-${index}`;
 
                     const status =
                       purchase.status ||
-                      "Pending";
+                      "pending";
 
                     const paymentStatus =
                       purchase.paymentStatus ||
-                      "Paid";
+                      purchase.payment?.status ||
+                      "pending";
 
                     const customerName =
-                      purchase.customerName ||
-                      purchase.name ||
+                      purchase.customer?.name ||
                       "Customer";
 
                     const customerEmail =
-                      purchase.customerEmail ||
-                      purchase.email ||
+                      purchase.customer?.email ||
                       "";
 
                     return (
@@ -1394,15 +1674,16 @@ function Accounts() {
                         <td>
 
                           <strong>
-                            {purchase.productName ||
-                              purchase.name ||
+                            {purchaseItem?.name ||
+                              purchaseItem?.productName ||
                               "Account"}
                           </strong>
 
                         </td>
 
                         <td>
-                          {purchase.username ||
+                          {purchaseItem?.metadata?.username ||
+                            purchaseItem?.username ||
                             "Pending"}
                         </td>
 
@@ -1418,7 +1699,8 @@ function Accounts() {
                           <strong>
                             $
                             {formatMoney(
-                              purchase.price
+                              purchaseItem?.priceUSD ??
+                                purchase.totalUSD
                             )}
                           </strong>
                         </td>
@@ -1447,23 +1729,23 @@ function Accounts() {
                               )
                             }
                           >
-                            <option>
+                            <option value="pending">
                               Pending
                             </option>
 
-                            <option>
+                            <option value="processing">
                               Processing
                             </option>
 
-                            <option>
+                            <option value="shipped">
                               Shipped
                             </option>
 
-                            <option>
+                            <option value="completed">
                               Completed
                             </option>
 
-                            <option>
+                            <option value="cancelled">
                               Cancelled
                             </option>
                           </select>
@@ -1943,7 +2225,7 @@ function Accounts() {
                   </span>
 
                   <strong>
-                    {selectedPurchase.customerName ||
+                    {selectedPurchase.customer?.name ||
                       "Customer"}
                   </strong>
 
@@ -1956,8 +2238,7 @@ function Accounts() {
                   </span>
 
                   <strong>
-                    {selectedPurchase.customerEmail ||
-                      selectedPurchase.email ||
+                    {selectedPurchase.customer?.email ||
                       "Not provided"}
                   </strong>
 
@@ -1983,8 +2264,8 @@ function Accounts() {
                   </span>
 
                   <strong>
-                    {selectedPurchase.productName ||
-                      selectedPurchase.name ||
+                    {selectedPurchase.items?.[0]?.name ||
+                      selectedPurchase.items?.[0]?.productName ||
                       "Account"}
                   </strong>
 
@@ -1997,7 +2278,8 @@ function Accounts() {
                   </span>
 
                   <strong>
-                    {selectedPurchase.username ||
+                    {selectedPurchase.items?.[0]?.metadata?.username ||
+                      selectedPurchase.items?.[0]?.username ||
                       "Pending"}
                   </strong>
 
@@ -2030,7 +2312,8 @@ function Accounts() {
                   <strong>
                     $
                     {formatMoney(
-                      selectedPurchase.price
+                      (selectedPurchase.items?.[0]?.priceUSD ??
+                      selectedPurchase.totalUSD)
                     )}
                   </strong>
 
@@ -2057,7 +2340,7 @@ function Accounts() {
 
                   <strong>
                     {formatDate(
-                      selectedPurchase.purchasedAt
+                      selectedPurchase.createdAt
                     )}
                   </strong>
 
@@ -2076,7 +2359,7 @@ function Accounts() {
                     }
                     onChange={(event) =>
                       updatePurchaseStatus(
-                        selectedPurchase.purchaseId ||
+                        selectedPurchase.orderId ||
                           selectedPurchase.id,
                         event.target.value
                       )

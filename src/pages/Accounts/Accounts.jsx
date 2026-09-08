@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+
 import { FiSearch, FiFilter, FiRefreshCw } from "react-icons/fi";
 
 import ProductCard from "../../components/ProductCard/ProductCard";
@@ -36,7 +36,13 @@ function Accounts() {
       setError("");
 
       const response = await fetch(
-        `${API_URL}/products?category=accounts&active=true`
+        `${API_URL}/products?category=accounts&active=true`,
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+          },
+        }
       );
 
       const data = await response.json();
@@ -48,8 +54,10 @@ function Accounts() {
       }
 
       /*
-       * Only accounts with stock greater than 0
-       * are shown to customers.
+       * MongoDB is the single source of truth.
+       *
+       * The backend returns active account products and
+       * stock determines whether they are available.
        */
       const availableAccounts = (
         Array.isArray(data.products)
@@ -61,6 +69,8 @@ function Accounts() {
     } catch (err) {
       console.error("Accounts loading error:", err);
 
+      setAccounts([]);
+
       setError(
         "Unable to load accounts right now. Please try again."
       );
@@ -71,6 +81,18 @@ function Accounts() {
 
   useEffect(() => {
     fetchAccounts();
+
+    /*
+     * Keep the marketplace synchronized with MongoDB while
+     * the customer is viewing the page.
+     */
+    const refreshInterval = window.setInterval(() => {
+      fetchAccounts();
+    }, 10000);
+
+    return () => {
+      window.clearInterval(refreshInterval);
+    };
   }, []);
 
   /* =================================================
