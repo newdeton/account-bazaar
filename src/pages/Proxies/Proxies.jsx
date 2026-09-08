@@ -11,11 +11,17 @@ import SectionTitle from "../../components/SectionTitle/SectionTitle";
 import "./Proxies.css";
 
 /* =========================================================
-   API
-   ========================================================= */
+   PRODUCTION API
+   API URL comes from the Vite environment variable.
+   No localhost fallback.
+========================================================= */
 
-const API_URL =
-  `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api`;
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL?.trim();
+
+const API_URL = API_BASE_URL
+  ? `${API_BASE_URL.replace(/\/$/, "")}/api`
+  : null;
 
 function Proxies() {
   const [proxies, setProxies] = useState([]);
@@ -28,49 +34,95 @@ function Proxies() {
   /* =========================================================
      STOCK AVAILABILITY
      STOCK IS THE SINGLE SOURCE OF TRUTH
-     ========================================================= */
+  ========================================================= */
 
   const isAvailable = (product) => {
     return Number(product?.stock || 0) > 0;
   };
 
   /* =========================================================
-     LOAD PROXIES FROM MONGODB
-     ========================================================= */
+     LOAD PROXIES FROM MONGODB THROUGH API
+  ========================================================= */
 
   const fetchProxies = async () => {
     try {
       setLoading(true);
       setError("");
 
-      const response = await fetch(
-        `${API_URL}/products?category=proxies&active=true`
-      );
+      /* -------------------------------------------------------
+         API CONFIGURATION CHECK
+      ------------------------------------------------------- */
 
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
+      if (!API_URL) {
         throw new Error(
-          data.message || "Failed to load proxies."
+          "The production API URL is not configured."
         );
       }
 
-      /*
-       * Only proxies with stock greater than 0
-       * are shown to customers.
-       */
-      const availableProxies = (
-        Array.isArray(data.products)
-          ? data.products
-          : []
-      ).filter(isAvailable);
+      /* -------------------------------------------------------
+         FETCH PROXY PRODUCTS
+         Backend:
+         GET /api/products?category=proxies&active=true
+      ------------------------------------------------------- */
+
+      const response = await fetch(
+        `${API_URL}/products?category=proxies&active=true`,
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+          },
+        }
+      );
+
+      /* -------------------------------------------------------
+         SAFELY PARSE RESPONSE
+      ------------------------------------------------------- */
+
+      let data;
+
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(
+          "The server returned an invalid response."
+        );
+      }
+
+      /* -------------------------------------------------------
+         API ERROR
+      ------------------------------------------------------- */
+
+      if (!response.ok || !data?.success) {
+        throw new Error(
+          data?.message ||
+            "Failed to load proxy products."
+        );
+      }
+
+      /* -------------------------------------------------------
+         ONLY PRODUCTS WITH STOCK ARE AVAILABLE
+      ------------------------------------------------------- */
+
+      const products = Array.isArray(data.products)
+        ? data.products
+        : [];
+
+      const availableProxies =
+        products.filter(isAvailable);
 
       setProxies(availableProxies);
     } catch (err) {
-      console.error("Proxies loading error:", err);
+      console.error(
+        "Proxies loading error:",
+        err
+      );
+
+      setProxies([]);
 
       setError(
-        "Unable to load proxies right now. Please try again."
+        err?.message ||
+          "Unable to load proxies right now. Please try again."
       );
     } finally {
       setLoading(false);
@@ -79,7 +131,7 @@ function Proxies() {
 
   /* =========================================================
      INITIAL LOAD
-     ========================================================= */
+  ========================================================= */
 
   useEffect(() => {
     fetchProxies();
@@ -87,7 +139,8 @@ function Proxies() {
 
   /* =========================================================
      PROXY TYPES
-     ========================================================= */
+     TYPES ARE GENERATED FROM MONGODB DATA
+  ========================================================= */
 
   const types = useMemo(() => {
     const uniqueTypes = proxies
@@ -99,12 +152,15 @@ function Proxies() {
       )
       .filter(Boolean);
 
-    return ["All", ...new Set(uniqueTypes)];
+    return [
+      "All",
+      ...new Set(uniqueTypes),
+    ];
   }, [proxies]);
 
   /* =========================================================
      FILTER PROXIES
-     ========================================================= */
+  ========================================================= */
 
   const filteredProducts = useMemo(() => {
     const searchValue = search
@@ -112,18 +168,27 @@ function Proxies() {
       .toLowerCase();
 
     return proxies.filter((product) => {
-      /*
-       * Never display products with no stock.
-       */
+      /* -------------------------------------------------------
+         NEVER DISPLAY PRODUCTS WITHOUT STOCK
+      ------------------------------------------------------- */
+
       if (!isAvailable(product)) {
         return false;
       }
+
+      /* -------------------------------------------------------
+         PRODUCT TYPE
+      ------------------------------------------------------- */
 
       const productType =
         product.type ||
         product.metadata?.type ||
         product.deliveryType ||
         "";
+
+      /* -------------------------------------------------------
+         SEARCH FIELDS
+      ------------------------------------------------------- */
 
       const productName =
         product.name?.toLowerCase() || "";
@@ -136,24 +201,31 @@ function Proxies() {
         productName.includes(searchValue) ||
         productDescription.includes(searchValue);
 
+      /* -------------------------------------------------------
+         TYPE FILTER
+      ------------------------------------------------------- */
+
       const matchesType =
         type === "All" ||
         productType === type;
 
-      return matchesSearch && matchesType;
+      return (
+        matchesSearch &&
+        matchesType
+      );
     });
   }, [proxies, search, type]);
 
   /* =========================================================
      RENDER
-     ========================================================= */
+  ========================================================= */
 
   return (
     <div className="proxies-page">
 
       {/* =====================================================
           PAGE HEADER
-          ===================================================== */}
+      ===================================================== */}
 
       <section className="page-header">
         <div className="container">
@@ -171,7 +243,7 @@ function Proxies() {
 
       {/* =====================================================
           CONTENT
-          ===================================================== */}
+      ===================================================== */}
 
       <section className="proxies-content">
         <div className="container">
@@ -184,7 +256,7 @@ function Proxies() {
 
           {/* =================================================
               TOOLBAR
-              ================================================= */}
+          ================================================= */}
 
           <div className="proxies-toolbar">
 
@@ -199,7 +271,9 @@ function Proxies() {
                 placeholder="Search proxies..."
                 value={search}
                 onChange={(event) =>
-                  setSearch(event.target.value)
+                  setSearch(
+                    event.target.value
+                  )
                 }
               />
 
@@ -214,7 +288,9 @@ function Proxies() {
               <select
                 value={type}
                 onChange={(event) =>
-                  setType(event.target.value)
+                  setType(
+                    event.target.value
+                  )
                 }
               >
                 {types.map((item) => (
@@ -252,7 +328,7 @@ function Proxies() {
 
           {/* =================================================
               LOADING
-              ================================================= */}
+          ================================================= */}
 
           {loading && (
             <div className="no-proxies">
@@ -271,7 +347,7 @@ function Proxies() {
 
           {/* =================================================
               ERROR
-              ================================================= */}
+          ================================================= */}
 
           {!loading && error && (
             <div className="no-proxies">
@@ -297,7 +373,7 @@ function Proxies() {
 
           {/* =================================================
               PRODUCTS
-              ================================================= */}
+          ================================================= */}
 
           {!loading &&
             !error &&
@@ -308,10 +384,10 @@ function Proxies() {
                 {filteredProducts.map(
                   (product) => {
 
-                    /*
-                     * Normalize MongoDB product
-                     * before passing it to ProductCard.
-                     */
+                    /* -----------------------------------------
+                       NORMALIZE MONGODB PRODUCT
+                    ----------------------------------------- */
+
                     const normalizedProduct = {
                       ...product,
 
@@ -333,17 +409,11 @@ function Proxies() {
                         product.deliveryType ||
                         "Proxy",
 
-                      /*
-                       * Explicit stock value.
-                       */
                       stock:
                         Number(
                           product.stock || 0
                         ),
 
-                      /*
-                       * Explicit availability.
-                       */
                       available:
                         isAvailable(product),
                     };
@@ -367,7 +437,7 @@ function Proxies() {
 
           {/* =================================================
               EMPTY
-              ================================================= */}
+          ================================================= */}
 
           {!loading &&
             !error &&

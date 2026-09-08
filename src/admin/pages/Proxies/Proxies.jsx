@@ -6,18 +6,27 @@ import {
   FiEdit2,
   FiTrash2,
   FiX,
-  FiUser,
-  FiMail,
-  FiShoppingBag,
-  FiClock,
   FiMapPin,
   FiServer,
+  FiRefreshCw,
+  FiAlertCircle,
 } from "react-icons/fi";
 
 import "./Proxies.css";
 
-const PROXY_STORAGE_KEY = "accountBazaarProxies";
-const PURCHASE_STORAGE_KEY = "accountBazaarPurchases";
+/* =========================================================
+   API
+   ========================================================= */
+
+const API_BASE_URL = import.meta.env.VITE_API_URL?.trim();
+
+const API_URL = API_BASE_URL
+  ? `${API_BASE_URL.replace(/\/$/, "")}/api`
+  : null;
+
+/* =========================================================
+   PROXY CATEGORIES
+   ========================================================= */
 
 const PROXY_CATEGORIES = {
   "Residential Proxies": [
@@ -25,40 +34,47 @@ const PROXY_CATEGORIES = {
     "Static Residential / ISP",
     "Dedicated Residential",
   ],
+
   "Datacenter Proxies": [
     "Shared Datacenter",
     "Dedicated Datacenter",
     "IPv4 Datacenter",
     "IPv6 Datacenter",
   ],
+
   "Mobile Proxies": [
     "4G Mobile",
     "5G Mobile",
     "Rotating Mobile",
     "Dedicated Mobile",
   ],
+
   "ISP Proxies": [
     "Static ISP",
     "Rotating ISP",
     "Dedicated ISP",
   ],
+
   "Rotating Proxies": [
     "Residential Rotation",
     "Datacenter Rotation",
     "Mobile Rotation",
     "Automatic IP Rotation",
   ],
+
   "Static Proxies": [
     "Static Residential",
     "Static ISP",
     "Static Datacenter",
     "Dedicated Static",
   ],
+
   "Sneaker Proxies": [
     "Residential Sneaker",
     "Datacenter Sneaker",
     "ISP Sneaker",
   ],
+
   "Social Media Proxies": [
     "Instagram",
     "Facebook",
@@ -66,12 +82,14 @@ const PROXY_CATEGORIES = {
     "X / Twitter",
     "LinkedIn",
   ],
+
   "Web Scraping Proxies": [
     "Residential Scraping",
     "Datacenter Scraping",
     "Rotating Scraping",
     "SERP Proxies",
   ],
+
   "Premium Proxies": [
     "Premium ISP",
     "Premium Residential",
@@ -79,68 +97,9 @@ const PROXY_CATEGORIES = {
   ],
 };
 
-const LEGACY_PROXY_TYPES = ["Residential", "Datacenter", "Mobile"];
-
-function getCategoryForProxy(proxy) {
-  if (proxy?.category && PROXY_CATEGORIES[proxy.category]) {
-    return proxy.category;
-  }
-
-  const type = String(proxy?.type || "").toLowerCase();
-
-  if (type.includes("mobile")) return "Mobile Proxies";
-  if (type.includes("datacenter") || type.includes("data center")) {
-    return "Datacenter Proxies";
-  }
-
-  return "Residential Proxies";
-}
-
-function getProxyTypesForCategory(category) {
-  return PROXY_CATEGORIES[category] || [];
-}
-
-const defaultProxies = [
-  {
-    id: 1,
-    name: "US Residential Proxy",
-    category: "Residential Proxies",
-    type: "Rotating Residential",
-    provider: "Premium Residential Provider",
-    location: "United States",
-    host: "us.proxy.example",
-    port: "8001",
-    price: 15,
-    stock: 25,
-    status: "Available",
-  },
-  {
-    id: 2,
-    name: "UK Datacenter Proxy",
-    category: "Datacenter Proxies",
-    type: "Dedicated Datacenter",
-    provider: "Premium Datacenter Provider",
-    location: "United Kingdom",
-    host: "uk.proxy.example",
-    port: "9001",
-    price: 10,
-    stock: 40,
-    status: "Available",
-  },
-  {
-    id: 3,
-    name: "Germany Mobile Proxy",
-    category: "Mobile Proxies",
-    type: "4G Mobile",
-    provider: "Premium Mobile Provider",
-    location: "Germany",
-    host: "de.proxy.example",
-    port: "7001",
-    price: 25,
-    stock: 5,
-    status: "Low Stock",
-  },
-];
+/* =========================================================
+   EMPTY FORM
+   ========================================================= */
 
 const emptyForm = {
   name: "",
@@ -154,325 +113,382 @@ const emptyForm = {
   password: "",
   price: "",
   stock: "",
+  description: "",
 };
 
-function safeParse(value, fallback = []) {
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed : fallback;
-  } catch {
-    return fallback;
+/* =========================================================
+   HELPERS
+   ========================================================= */
+
+function getProxyId(proxy) {
+  return proxy?.productId || proxy?._id || proxy?.id;
+}
+
+function getProxyCategory(proxy) {
+  return (
+    proxy?.metadata?.proxyCategory ||
+    proxy?.proxyCategory ||
+    "Residential Proxies"
+  );
+}
+
+function getProxyType(proxy) {
+  return (
+    proxy?.metadata?.type ||
+    proxy?.type ||
+    proxy?.deliveryType ||
+    "Proxy"
+  );
+}
+
+function getProxyProvider(proxy) {
+  return (
+    proxy?.metadata?.provider ||
+    proxy?.provider ||
+    ""
+  );
+}
+
+function getProxyLocation(proxy) {
+  return (
+    proxy?.metadata?.location ||
+    proxy?.location ||
+    ""
+  );
+}
+
+function getProxyHost(proxy) {
+  return (
+    proxy?.metadata?.host ||
+    proxy?.host ||
+    ""
+  );
+}
+
+function getProxyPort(proxy) {
+  return (
+    proxy?.metadata?.port ||
+    proxy?.port ||
+    ""
+  );
+}
+
+function getProxyStatus(stock) {
+  const numericStock = Number(stock || 0);
+
+  if (numericStock <= 0) {
+    return "Out of Stock";
   }
+
+  if (numericStock <= 5) {
+    return "Low Stock";
+  }
+
+  return "Available";
 }
 
-function normalizePurchase(purchase, index) {
-  return {
-    ...purchase,
-
-    id:
-      purchase.id ||
-      purchase.purchaseId ||
-      `purchase-${index}-${Date.now()}`,
-
-    orderId:
-      purchase.orderId ||
-      purchase.purchaseId ||
-      purchase.id ||
-      `ORD-${String(index + 1).padStart(5, "0")}`,
-
-    customerName:
-      purchase.customerName ||
-      purchase.fullName ||
-      purchase.name ||
-      "Customer",
-
-    customerEmail:
-      purchase.customerEmail ||
-      purchase.email ||
-      "No email provided",
-
-    productName:
-      purchase.productName ||
-      purchase.product ||
-      purchase.name ||
-      "Proxy",
-
-    category:
-      purchase.category || "Proxies",
-    provider:
-      purchase.provider || "Provider not specified",
-
-    price:
-      Number(purchase.price) || 0,
-
-    status:
-      purchase.status || "New",
-
-    date:
-      purchase.date ||
-      purchase.createdAt ||
-      purchase.created_at ||
-      null,
-  };
+function getProxyTypesForCategory(category) {
+  return PROXY_CATEGORIES[category] || [];
 }
+
+function createSlug(name) {
+  return String(name || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function getDescription(form) {
+  if (form.description.trim()) {
+    return form.description.trim();
+  }
+
+  const parts = [
+    form.type,
+    form.provider,
+    form.location,
+  ].filter(Boolean);
+
+  if (parts.length > 0) {
+    return `${parts.join(" ")} proxy for secure and reliable online connectivity.`;
+  }
+
+  return "Premium proxy service.";
+}
+
+/* =========================================================
+   COMPONENT
+   ========================================================= */
 
 function Proxies() {
-  const [showForm, setShowForm] = useState(false);
-  const [editingProxy, setEditingProxy] = useState(null);
+  const [proxies, setProxies] = useState([]);
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
 
-  /* =====================================================
-     PROXY INVENTORY
-  ===================================================== */
-
-  const [proxies, setProxies] = useState(() => {
-    const savedProxies = localStorage.getItem(
-      PROXY_STORAGE_KEY
-    );
-
-    if (savedProxies) {
-      try {
-        const parsed = JSON.parse(savedProxies);
-
-        if (Array.isArray(parsed)) {
-          return parsed;
-        }
-      } catch (error) {
-        console.error(
-          "Failed to load saved proxies:",
-          error
-        );
-      }
-    }
-
-    localStorage.setItem(
-      PROXY_STORAGE_KEY,
-      JSON.stringify(defaultProxies)
-    );
-
-    return defaultProxies;
-  });
-
-  /* =====================================================
-     CUSTOMER PURCHASES
-  ===================================================== */
-
-  const [purchases, setPurchases] = useState(() => {
-    const saved = localStorage.getItem(
-      PURCHASE_STORAGE_KEY
-    );
-
-    return safeParse(saved, []);
-  });
-
-  /* =====================================================
-     FORM
-  ===================================================== */
+  const [showForm, setShowForm] = useState(false);
+  const [editingProxy, setEditingProxy] = useState(null);
 
   const [form, setForm] = useState(emptyForm);
 
-  /* =====================================================
-     SAVE INVENTORY
-  ===================================================== */
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+
+  const [error, setError] = useState("");
+  const [formError, setFormError] = useState("");
+
+  /* =========================================================
+     API CONFIGURATION
+     ========================================================= */
+
+  const apiConfigured = Boolean(API_URL);
+
+  /* =========================================================
+     FETCH PROXIES
+     ========================================================= */
+
+  const fetchProxies = async () => {
+    if (!API_URL) {
+      setLoading(false);
+      setError(
+        "The production API URL is not configured. Add VITE_API_URL to the frontend environment variables."
+      );
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+
+      const response = await fetch(
+        `${API_URL}/products?category=proxies`
+      );
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message || "Failed to load proxies."
+        );
+      }
+
+      const products = Array.isArray(data.products)
+        ? data.products
+        : [];
+
+      setProxies(products);
+    } catch (err) {
+      console.error("Admin proxies loading error:", err);
+
+      setError(
+        err.message ||
+          "Unable to load proxy inventory."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* =========================================================
+     INITIAL LOAD
+     ========================================================= */
 
   useEffect(() => {
-    localStorage.setItem(
-      PROXY_STORAGE_KEY,
-      JSON.stringify(proxies)
-    );
-  }, [proxies]);
-
-  /* =====================================================
-     LOAD CUSTOMER PURCHASES
-  ===================================================== */
-
-  useEffect(() => {
-    const loadPurchases = () => {
-      const saved = localStorage.getItem(
-        PURCHASE_STORAGE_KEY
-      );
-
-      const parsed = safeParse(saved, []);
-
-      setPurchases(parsed);
-    };
-
-    loadPurchases();
-
-    window.addEventListener(
-      "storage",
-      loadPurchases
-    );
-
-    window.addEventListener(
-      "accountBazaarPurchaseCreated",
-      loadPurchases
-    );
-
-    return () => {
-      window.removeEventListener(
-        "storage",
-        loadPurchases
-      );
-
-      window.removeEventListener(
-        "accountBazaarPurchaseCreated",
-        loadPurchases
-      );
-    };
+    fetchProxies();
   }, []);
 
-  /* =====================================================
-     CUSTOMER PROXY ORDERS
-  ===================================================== */
+  /* =========================================================
+     FILTER TYPES
+     ========================================================= */
 
-  const proxyPurchases = useMemo(() => {
-    return purchases
-      .filter((purchase) => {
-        const category = String(
-          purchase.category || ""
-        ).toLowerCase();
+  const availableTypes = useMemo(() => {
+    const types = proxies
+      .map(getProxyType)
+      .filter(Boolean);
 
-        return (
-          category === "proxy" ||
-          category === "proxies"
-        );
-      })
-      .map(normalizePurchase)
-      .sort((a, b) => {
-        const first = new Date(
-          a.date || 0
-        ).getTime();
+    return [
+      "all",
+      ...Array.from(new Set(types)),
+    ];
+  }, [proxies]);
 
-        const second = new Date(
-          b.date || 0
-        ).getTime();
-
-        return second - first;
-      });
-  }, [purchases]);
-
-  /* =====================================================
-     CUSTOMER ORDER STATS
-  ===================================================== */
-
-  const purchaseStats = useMemo(() => {
-    const total = proxyPurchases.length;
-
-    const pending = proxyPurchases.filter(
-      (purchase) =>
-        ["new", "pending", "processing"].includes(
-          String(purchase.status).toLowerCase()
-        )
-    ).length;
-
-    const completed = proxyPurchases.filter(
-      (purchase) =>
-        ["completed", "delivered", "fulfilled"].includes(
-          String(purchase.status).toLowerCase()
-        )
-    ).length;
-
-    return {
-      total,
-      pending,
-      completed,
-    };
-  }, [proxyPurchases]);
-
-  /* =====================================================
+  /* =========================================================
      FILTER INVENTORY
-  ===================================================== */
+     ========================================================= */
 
   const filteredProxies = useMemo(() => {
     const query = search.trim().toLowerCase();
 
     return proxies.filter((proxy) => {
+      const name = String(
+        proxy.name || ""
+      ).toLowerCase();
+
+      const category = String(
+        getProxyCategory(proxy)
+      ).toLowerCase();
+
+      const type = String(
+        getProxyType(proxy)
+      ).toLowerCase();
+
+      const provider = String(
+        getProxyProvider(proxy)
+      ).toLowerCase();
+
+      const location = String(
+        getProxyLocation(proxy)
+      ).toLowerCase();
+
+      const host = String(
+        getProxyHost(proxy)
+      ).toLowerCase();
+
       const matchesSearch =
-        String(proxy.name || "")
-          .toLowerCase()
-          .includes(query) ||
-        String(proxy.location || "")
-          .toLowerCase()
-          .includes(query) ||
-        String(proxy.category || "")
-          .toLowerCase()
-          .includes(query) ||
-        String(proxy.type || "")
-          .toLowerCase()
-          .includes(query) ||
-        String(proxy.provider || "")
-          .toLowerCase()
-          .includes(query) ||
-        String(proxy.host || "")
-          .toLowerCase()
-          .includes(query);
+        !query ||
+        name.includes(query) ||
+        category.includes(query) ||
+        type.includes(query) ||
+        provider.includes(query) ||
+        location.includes(query) ||
+        host.includes(query);
 
       const matchesCategory =
         categoryFilter === "all" ||
-        getCategoryForProxy(proxy) === categoryFilter;
+        getProxyCategory(proxy) === categoryFilter;
 
       const matchesType =
         typeFilter === "all" ||
-        String(proxy.type || "").toLowerCase() ===
-          typeFilter.toLowerCase();
+        getProxyType(proxy) === typeFilter;
 
-      return matchesSearch && matchesCategory && matchesType;
+      return (
+        matchesSearch &&
+        matchesCategory &&
+        matchesType
+      );
     });
-  }, [proxies, search, categoryFilter, typeFilter]);
+  }, [
+    proxies,
+    search,
+    categoryFilter,
+    typeFilter,
+  ]);
 
-  /* =====================================================
-     FORM FUNCTIONS
-  ===================================================== */
+  /* =========================================================
+     INVENTORY STATS
+     ========================================================= */
+
+  const inventoryStats = useMemo(() => {
+    const total = proxies.length;
+
+    const available = proxies.filter(
+      (proxy) => Number(proxy.stock || 0) > 0
+    ).length;
+
+    const lowStock = proxies.filter((proxy) => {
+      const stock = Number(proxy.stock || 0);
+      return stock > 0 && stock <= 5;
+    }).length;
+
+    const outOfStock = proxies.filter(
+      (proxy) => Number(proxy.stock || 0) <= 0
+    ).length;
+
+    return {
+      total,
+      available,
+      lowStock,
+      outOfStock,
+    };
+  }, [proxies]);
+
+  /* =========================================================
+     FORM
+     ========================================================= */
 
   const openAddForm = () => {
     setEditingProxy(null);
     setForm(emptyForm);
+    setFormError("");
     setShowForm(true);
   };
 
   const openEditForm = (proxy) => {
-    setEditingProxy(proxy);
+    const category = getProxyCategory(proxy);
 
-    const category = getCategoryForProxy(proxy);
-    const legacyType = proxy.type || "";
+    const availableTypes =
+      getProxyTypesForCategory(category);
+
+    const currentType = getProxyType(proxy);
+
     const type =
-      getProxyTypesForCategory(category).includes(legacyType)
-        ? legacyType
-        : getProxyTypesForCategory(category)[0] || legacyType;
+      availableTypes.includes(currentType)
+        ? currentType
+        : availableTypes[0] || currentType;
+
+    setEditingProxy(proxy);
 
     setForm({
       name: proxy.name || "",
+
       category,
+
       type,
-      provider: proxy.provider || "",
-      location: proxy.location || "",
-      host: proxy.host || "",
-      port: proxy.port || "",
+
+      provider: getProxyProvider(proxy),
+
+      location: getProxyLocation(proxy),
+
+      host: getProxyHost(proxy),
+
+      port: getProxyPort(proxy),
+
+      /*
+       * Credentials are intentionally not loaded
+       * into the public product object.
+       *
+       * Leave these blank unless the backend is later
+       * changed to support secure credential storage/
+       * fulfillment.
+       */
       username: "",
+
       password: "",
+
       price: proxy.price ?? "",
+
       stock: proxy.stock ?? "",
+
+      description: proxy.description || "",
     });
 
+    setFormError("");
     setShowForm(true);
   };
 
   const closeForm = () => {
+    if (saving) return;
+
     setShowForm(false);
     setEditingProxy(null);
     setForm(emptyForm);
+    setFormError("");
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  const handleChange = (event) => {
+    const {
+      name,
+      value,
+    } = event.target;
 
     setForm((currentForm) => {
       if (name === "category") {
-        const nextTypes = getProxyTypesForCategory(value);
+        const nextTypes =
+          getProxyTypesForCategory(value);
+
         return {
           ...currentForm,
           category: value,
@@ -487,430 +503,420 @@ function Proxies() {
     });
   };
 
-  /* =====================================================
-     SAVE PROXY
-  ===================================================== */
+  /* =========================================================
+     CREATE / UPDATE PROXY
+     ========================================================= */
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    if (!API_URL) {
+      setFormError(
+        "The production API URL is not configured."
+      );
+      return;
+    }
+
+    setFormError("");
 
     const name = form.name.trim();
+    const category = form.category.trim();
+    const type = form.type.trim();
+    const provider = form.provider.trim();
     const location = form.location.trim();
     const host = form.host.trim();
     const port = form.port.trim();
+    const description = getDescription(form);
 
     const price = Number(form.price);
     const stock = Number(form.stock);
 
-    if (
-      !name ||
-      !form.category ||
-      !form.type ||
-      !location ||
-      !host ||
-      !port ||
-      !Number.isFinite(price) ||
-      price < 0 ||
-      !Number.isInteger(stock) ||
-      stock < 0
-    ) {
+    if (!name) {
+      setFormError("Proxy name is required.");
       return;
     }
 
-    const updatedProxy = {
-      id: editingProxy
-        ? editingProxy.id
-        : Date.now(),
+    if (!category) {
+      setFormError("Proxy category is required.");
+      return;
+    }
 
-      name,
-      category: form.category,
-      type: form.type,
-      provider: form.provider.trim(),
+    if (!type) {
+      setFormError("Proxy type is required.");
+      return;
+    }
+
+    if (!location) {
+      setFormError("Proxy location is required.");
+      return;
+    }
+
+    if (!host) {
+      setFormError("Proxy host/IP is required.");
+      return;
+    }
+
+    if (!port) {
+      setFormError("Proxy port is required.");
+      return;
+    }
+
+    if (!Number.isFinite(price) || price < 0) {
+      setFormError(
+        "Price must be a valid number greater than or equal to 0."
+      );
+      return;
+    }
+
+    if (
+      !Number.isInteger(stock) ||
+      stock < 0
+    ) {
+      setFormError(
+        "Stock must be a whole number greater than or equal to 0."
+      );
+      return;
+    }
+
+    const slugBase = createSlug(name);
+
+    if (!slugBase) {
+      setFormError(
+        "Unable to generate a valid product slug from the proxy name."
+      );
+      return;
+    }
+
+    const metadata = {
+      proxyCategory: category,
+      type,
+      provider,
       location,
       host,
       port,
-
-      username: form.username.trim(),
-      password: form.password,
-
-      price,
-      stock,
-
-      status:
-        stock === 0
-          ? "Out of Stock"
-          : stock <= 5
-          ? "Low Stock"
-          : "Available",
     };
 
-    if (editingProxy) {
-      setProxies((currentProxies) =>
-        currentProxies.map((proxy) =>
-          proxy.id === editingProxy.id
-            ? {
-                ...proxy,
-                ...updatedProxy,
+    const payload = {
+      name,
+      slug: editingProxy
+        ? editingProxy.slug || slugBase
+        : slugBase,
+      description,
 
-                username:
-                  form.username.trim() ||
-                  proxy.username ||
-                  "",
+      /*
+       * IMPORTANT:
+       *
+       * The customer Proxies.jsx requests:
+       *
+       * /products?category=proxies
+       *
+       * Therefore every proxy product must have:
+       *
+       * category: "proxies"
+       *
+       * The detailed category lives in metadata.
+       */
+      category: "proxies",
 
-                password:
-                  form.password ||
-                  proxy.password ||
-                  "",
-              }
-            : proxy
+      price,
+      currency: "USD",
+
+      stock,
+
+      unlimitedStock: false,
+
+      featured: false,
+
+      deliveryType: "digital",
+
+      metadata,
+    };
+
+    try {
+      setSaving(true);
+
+      const productId = editingProxy
+        ? getProxyId(editingProxy)
+        : null;
+
+      const endpoint = editingProxy
+        ? `${API_URL}/products/${encodeURIComponent(
+            productId
+          )}`
+        : `${API_URL}/products`;
+
+      const method = editingProxy
+        ? "PUT"
+        : "POST";
+
+      const response = await fetch(endpoint, {
+        method,
+
+        headers: {
+          "Content-Type": "application/json",
+        },
+
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response
+        .json()
+        .catch(() => ({}));
+
+      if (!response.ok || !data.success) {
+        const backendErrors = Array.isArray(
+          data.errors
         )
-      );
-    } else {
-      setProxies((currentProxies) => [
-        updatedProxy,
-        ...currentProxies,
-      ]);
-    }
+          ? ` ${data.errors.join(" ")}`
+          : "";
 
-    closeForm();
+        throw new Error(
+          (data.message ||
+            "Unable to save proxy.") +
+            backendErrors
+        );
+      }
+
+      /*
+       * Reload from MongoDB instead of manually
+       * updating local state.
+       *
+       * This guarantees the admin page and customer
+       * page use the same source of truth.
+       */
+      await fetchProxies();
+
+      closeForm();
+    } catch (err) {
+      console.error(
+        "Admin proxy save error:",
+        err
+      );
+
+      setFormError(
+        err.message ||
+          "Unable to save proxy."
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
-  /* =====================================================
+  /* =========================================================
      DELETE PROXY
-  ===================================================== */
+     ========================================================= */
 
-  const deleteProxy = (id) => {
+  const deleteProxy = async (proxy) => {
+    if (!API_URL) {
+      setError(
+        "The production API URL is not configured."
+      );
+      return;
+    }
+
+    const productId = getProxyId(proxy);
+
+    if (!productId) {
+      setError(
+        "This proxy does not have a valid product identifier."
+      );
+      return;
+    }
+
     const confirmed = window.confirm(
-      "Are you sure you want to delete this proxy?"
+      `Are you sure you want to remove "${proxy.name}"?`
     );
 
     if (!confirmed) return;
 
-    setProxies((currentProxies) =>
-      currentProxies.filter(
-        (proxy) => proxy.id !== id
-      )
+    try {
+      setDeletingId(productId);
+      setError("");
+
+      const response = await fetch(
+        `${API_URL}/products/${encodeURIComponent(
+          productId
+        )}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const data = await response
+        .json()
+        .catch(() => ({}));
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message ||
+            "Unable to delete proxy."
+        );
+      }
+
+      /*
+       * Backend performs a soft delete by setting
+       * isActive to false.
+       *
+       * Reload the inventory from MongoDB.
+       */
+      await fetchProxies();
+    } catch (err) {
+      console.error(
+        "Admin proxy delete error:",
+        err
+      );
+
+      setError(
+        err.message ||
+          "Unable to delete proxy."
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  /* =========================================================
+     DATE
+     ========================================================= */
+
+  const formatDate = (date) => {
+    if (!date) return "—";
+
+    const parsed = new Date(date);
+
+    if (Number.isNaN(parsed.getTime())) {
+      return "—";
+    }
+
+    return parsed.toLocaleDateString(
+      "en-US",
+      {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }
     );
   };
 
-  /* =====================================================
-     DATE FORMATTERS
-  ===================================================== */
-
-  const formatDate = (date) => {
-    if (!date) return "Date unavailable";
-
-    const parsed = new Date(date);
-
-    if (Number.isNaN(parsed.getTime())) {
-      return "Date unavailable";
-    }
-
-    return parsed.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
-
-  const formatDateTime = (date) => {
-    if (!date) return "Date unavailable";
-
-    const parsed = new Date(date);
-
-    if (Number.isNaN(parsed.getTime())) {
-      return "Date unavailable";
-    }
-
-    return parsed.toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
-  };
+  /* =========================================================
+     RENDER
+     ========================================================= */
 
   return (
     <div className="admin-proxies">
 
-      {/* =================================================
-          CUSTOMER ORDER CENTER
-      ================================================= */}
+      {/* =====================================================
+          API ERROR
+      ===================================================== */}
 
-      <section className="proxy-purchases-section">
-
-        <div className="proxy-purchases-heading">
+      {!apiConfigured && (
+        <div className="proxy-api-warning">
+          <FiAlertCircle />
 
           <div>
-            <span>CUSTOMER IDENTITY & ORDERS</span>
-
-            <h2>Proxy Purchases</h2>
-
-            <p>
-              Track customers, orders and proxy
-              fulfillment from one place.
-            </p>
-          </div>
-
-          <div className="proxy-purchase-summary">
-
-            <div>
-              <strong>
-                {purchaseStats.total}
-              </strong>
-
-              <span>Total</span>
-            </div>
-
-            <div>
-              <strong>
-                {purchaseStats.pending}
-              </strong>
-
-              <span>Pending</span>
-            </div>
-
-            <div>
-              <strong>
-                {purchaseStats.completed}
-              </strong>
-
-              <span>Completed</span>
-            </div>
-
-          </div>
-
-        </div>
-
-        {proxyPurchases.length > 0 ? (
-
-          <div className="proxy-purchases-table-wrapper">
-
-            <table className="proxy-purchases-table">
-
-              <thead>
-                <tr>
-                  <th>Customer</th>
-                  <th>Order</th>
-                  <th>Proxy</th>
-                  <th>Price</th>
-                  <th>Date</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-
-              <tbody>
-
-                {proxyPurchases.map(
-                  (purchase, index) => (
-
-                    <tr
-                      key={
-                        purchase.id ||
-                        purchase.orderId ||
-                        index
-                      }
-                    >
-
-                      {/* CUSTOMER */}
-
-                      <td>
-
-                        <div className="proxy-customer">
-
-                          <div className="proxy-customer-avatar">
-                            {purchase.customerName
-                              ?.charAt(0)
-                              ?.toUpperCase() || "C"}
-                          </div>
-
-                          <div>
-
-                            <strong>
-                              {purchase.customerName}
-                            </strong>
-
-                            <small>
-                              <FiMail />
-                              {purchase.customerEmail}
-                            </small>
-
-                          </div>
-
-                        </div>
-
-                      </td>
-
-                      {/* ORDER */}
-
-                      <td>
-
-                        <div className="proxy-order-info">
-
-                          <strong>
-                            {purchase.orderId}
-                          </strong>
-
-                          <small>
-                            <FiShoppingBag />
-                            Proxy order
-                          </small>
-
-                        </div>
-
-                      </td>
-
-                      {/* PRODUCT */}
-
-                      <td>
-
-                        <div className="proxy-product-info">
-
-                          <strong>
-                            {purchase.productName}
-                          </strong>
-
-                          {purchase.type && (
-                            <small>
-                              {purchase.type}
-                            </small>
-                          )}
-
-                        </div>
-
-                      </td>
-
-                      {/* PRICE */}
-
-                      <td>
-                        <strong>
-                          $
-                          {Number(
-                            purchase.price || 0
-                          ).toFixed(2)}
-                        </strong>
-                      </td>
-
-                      {/* DATE */}
-
-                      <td>
-
-                        <div className="proxy-date">
-
-                          <span>
-                            <FiClock />
-                            {formatDate(
-                              purchase.date
-                            )}
-                          </span>
-
-                          <small>
-                            {formatDateTime(
-                              purchase.date
-                            )}
-                          </small>
-
-                        </div>
-
-                      </td>
-
-                      {/* STATUS */}
-
-                      <td>
-
-                        <span
-                          className={`proxy-purchase-status ${String(
-                            purchase.status
-                          )
-                            .toLowerCase()
-                            .replace(
-                              /\s+/g,
-                              "-"
-                            )}`}
-                        >
-                          {purchase.status}
-                        </span>
-
-                      </td>
-
-                    </tr>
-
-                  )
-                )}
-
-              </tbody>
-
-            </table>
-
-          </div>
-
-        ) : (
-
-          <div className="proxy-purchases-empty">
-
-            <FiShoppingBag />
-
             <strong>
-              No proxy purchases yet
+              API URL not configured
             </strong>
 
             <span>
-              Customer proxy orders will appear
-              here after checkout.
+              Set VITE_API_URL to your production
+              Render API URL before managing proxies.
             </span>
-
           </div>
+        </div>
+      )}
 
-        )}
-
-      </section>
-
-      {/* =================================================
-          INVENTORY HEADER
-      ================================================= */}
+      {/* =====================================================
+          PAGE HEADER
+      ===================================================== */}
 
       <div className="proxies-heading">
-
         <div>
-
           <span>PROXY INVENTORY</span>
 
           <h1>Proxies</h1>
 
           <p>
-            Manage residential, datacenter, mobile,
-            ISP, rotating and specialized proxy inventory.
+            Manage residential, datacenter,
+            mobile, ISP, rotating and specialized
+            proxy inventory.
           </p>
-
         </div>
 
         <button
+          type="button"
           className="add-proxy-button"
           onClick={openAddForm}
+          disabled={!apiConfigured}
         >
           <FiPlus />
           Add Proxy
         </button>
+      </div>
+
+      {/* =====================================================
+          INVENTORY SUMMARY
+      ===================================================== */}
+
+      <div className="proxy-purchase-summary">
+
+        <div>
+          <strong>
+            {inventoryStats.total}
+          </strong>
+
+          <span>
+            Total Proxies
+          </span>
+        </div>
+
+        <div>
+          <strong>
+            {inventoryStats.available}
+          </strong>
+
+          <span>
+            Available
+          </span>
+        </div>
+
+        <div>
+          <strong>
+            {inventoryStats.lowStock}
+          </strong>
+
+          <span>
+            Low Stock
+          </span>
+        </div>
+
+        <div>
+          <strong>
+            {inventoryStats.outOfStock}
+          </strong>
+
+          <span>
+            Out of Stock
+          </span>
+        </div>
 
       </div>
 
-      {/* =================================================
+      {/* =====================================================
           TOOLBAR
-      ================================================= */}
+      ===================================================== */}
 
       <div className="proxies-toolbar">
 
         <div className="proxies-search">
-
           <FiSearch />
 
           <input
             type="text"
             placeholder="Search proxies, providers, locations or hosts..."
             value={search}
-            onChange={(e) =>
-              setSearch(e.target.value)
+            onChange={(event) =>
+              setSearch(event.target.value)
             }
           />
 
@@ -924,257 +930,350 @@ function Proxies() {
               <FiX />
             </button>
           )}
-
         </div>
 
         <select
-          value={typeFilter}
-          onChange={(e) =>
-            setTypeFilter(e.target.value)
+          value={categoryFilter}
+          onChange={(event) =>
+            setCategoryFilter(event.target.value)
           }
         >
+          <option value="all">
+            All Categories
+          </option>
 
+          {Object.keys(PROXY_CATEGORIES).map(
+            (category) => (
+              <option
+                key={category}
+                value={category}
+              >
+                {category}
+              </option>
+            )
+          )}
+        </select>
+
+        <select
+          value={typeFilter}
+          onChange={(event) =>
+            setTypeFilter(event.target.value)
+          }
+        >
           <option value="all">
             All Types
           </option>
 
-          <option value="residential">
-            Residential
-          </option>
-
-          <option value="datacenter">
-            Datacenter
-          </option>
-
-          <option value="mobile">
-            Mobile
-          </option>
-
+          {availableTypes
+            .filter((type) => type !== "all")
+            .map((type) => (
+              <option
+                key={type}
+                value={type}
+              >
+                {type}
+              </option>
+            ))}
         </select>
 
+        <button
+          type="button"
+          className="proxies-refresh"
+          onClick={fetchProxies}
+          disabled={loading}
+          title="Refresh proxies"
+          aria-label="Refresh proxies"
+        >
+          <FiRefreshCw
+            className={
+              loading
+                ? "proxy-refresh-spinning"
+                : ""
+            }
+          />
+        </button>
+
       </div>
 
-      {/* =================================================
-          INVENTORY TABLE
-      ================================================= */}
+      {/* =====================================================
+          ERROR
+      ===================================================== */}
 
-      <div className="proxies-table-wrapper">
+      {error && (
+        <div className="proxy-api-warning">
+          <FiAlertCircle />
 
-        <table className="proxies-table">
+          <div>
+            <strong>
+              Unable to load inventory
+            </strong>
 
-          <thead>
-            <tr>
-              <th>Proxy</th>
-              <th>Category</th>
-              <th>Type</th>
-              <th>Provider</th>
-              <th>Location</th>
-              <th>Host</th>
-              <th>Price</th>
-              <th>Stock</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
+            <span>
+              {error}
+            </span>
+          </div>
+        </div>
+      )}
 
-          <tbody>
+      {/* =====================================================
+          LOADING
+      ===================================================== */}
 
-            {filteredProxies.length > 0 ? (
+      {loading ? (
+        <div className="proxies-empty">
+          <FiRefreshCw className="proxy-refresh-spinning" />
 
-              filteredProxies.map((proxy) => (
+          <strong>
+            Loading proxy inventory...
+          </strong>
 
-                <tr key={proxy.id}>
+          <span>
+            Getting the latest inventory from MongoDB.
+          </span>
+        </div>
+      ) : (
+        <>
+          {/* =================================================
+              INVENTORY TABLE
+          ================================================= */}
 
-                  {/* PROXY */}
+          <div className="proxies-table-wrapper">
 
-                  <td>
+            <table className="proxies-table">
 
-                    <div className="proxy-name">
-
-                      <div className="proxy-placeholder">
-                        <FiServer />
-                      </div>
-
-                      <div>
-
-                        <strong>
-                          {proxy.name}
-                        </strong>
-
-                        <small>
-                          ID #{proxy.id}
-                        </small>
-
-                      </div>
-
-                    </div>
-
-                  </td>
-
-                  {/* CATEGORY */}
-
-                  <td>
-                    <span className="proxy-category-badge">
-                      {getCategoryForProxy(proxy)}
-                    </span>
-                  </td>
-
-                  {/* TYPE */}
-
-                  <td>
-                    <span className="proxy-type-badge">
-                      {proxy.type}
-                    </span>
-                  </td>
-
-                  {/* PROVIDER */}
-
-                  <td>
-                    <span className="proxy-provider">
-                      {proxy.provider || "—"}
-                    </span>
-                  </td>
-
-                  {/* LOCATION */}
-
-                  <td>
-
-                    <span className="proxy-location">
-                      <FiMapPin />
-                      {proxy.location}
-                    </span>
-
-                  </td>
-
-                  {/* HOST */}
-
-                  <td>
-
-                    <span className="proxy-host">
-                      {proxy.host}:{proxy.port}
-                    </span>
-
-                  </td>
-
-                  {/* PRICE */}
-
-                  <td>
-
-                    <strong>
-                      $
-                      {Number(
-                        proxy.price || 0
-                      ).toFixed(2)}
-                    </strong>
-
-                  </td>
-
-                  {/* STOCK */}
-
-                  <td>
-
-                    <span
-                      className={
-                        proxy.stock <= 5
-                          ? "proxy-stock-low"
-                          : ""
-                      }
-                    >
-                      {proxy.stock}
-                    </span>
-
-                  </td>
-
-                  {/* STATUS */}
-
-                  <td>
-
-                    <span
-                      className={`proxy-status ${String(
-                        proxy.status
-                      )
-                        .toLowerCase()
-                        .replace(
-                          /\s+/g,
-                          "-"
-                        )}`}
-                    >
-                      {proxy.status}
-                    </span>
-
-                  </td>
-
-                  {/* ACTIONS */}
-
-                  <td>
-
-                    <div className="proxy-actions">
-
-                      <button
-                        type="button"
-                        title="Edit proxy"
-                        onClick={() =>
-                          openEditForm(proxy)
-                        }
-                      >
-                        <FiEdit2 />
-                      </button>
-
-                      <button
-                        type="button"
-                        title="Delete proxy"
-                        onClick={() =>
-                          deleteProxy(proxy.id)
-                        }
-                      >
-                        <FiTrash2 />
-                      </button>
-
-                    </div>
-
-                  </td>
-
+              <thead>
+                <tr>
+                  <th>Proxy</th>
+                  <th>Category</th>
+                  <th>Type</th>
+                  <th>Provider</th>
+                  <th>Location</th>
+                  <th>Host</th>
+                  <th>Price</th>
+                  <th>Stock</th>
+                  <th>Status</th>
+                  <th></th>
                 </tr>
+              </thead>
 
-              ))
+              <tbody>
 
-            ) : (
+                {filteredProxies.length > 0 ? (
+                  filteredProxies.map((proxy) => {
+                    const proxyId =
+                      getProxyId(proxy);
 
-              <tr>
+                    const stock =
+                      Number(proxy.stock || 0);
 
-                <td
-                  colSpan="10"
-                  className="proxies-empty"
-                >
-                  <FiSearch />
+                    const status =
+                      getProxyStatus(stock);
 
-                  <strong>
-                    No proxies found
-                  </strong>
+                    return (
+                      <tr
+                        key={proxyId}
+                      >
 
-                  <span>
-                    Try changing your search or
-                    filter.
-                  </span>
+                        {/* PROXY */}
 
-                </td>
+                        <td>
+                          <div className="proxy-name">
 
-              </tr>
+                            <div className="proxy-placeholder">
+                              <FiServer />
+                            </div>
 
-            )}
+                            <div>
+                              <strong>
+                                {proxy.name}
+                              </strong>
 
-          </tbody>
+                              <small>
+                                ID #{proxy.productId || proxy._id}
+                              </small>
+                            </div>
 
-        </table>
+                          </div>
+                        </td>
 
-      </div>
+                        {/* CATEGORY */}
 
-      {/* =================================================
+                        <td>
+                          <span className="proxy-category-badge">
+                            {getProxyCategory(proxy)}
+                          </span>
+                        </td>
+
+                        {/* TYPE */}
+
+                        <td>
+                          <span className="proxy-type-badge">
+                            {getProxyType(proxy)}
+                          </span>
+                        </td>
+
+                        {/* PROVIDER */}
+
+                        <td>
+                          <span className="proxy-provider">
+                            {getProxyProvider(proxy) || "—"}
+                          </span>
+                        </td>
+
+                        {/* LOCATION */}
+
+                        <td>
+                          <span className="proxy-location">
+                            <FiMapPin />
+
+                            {getProxyLocation(proxy) || "—"}
+                          </span>
+                        </td>
+
+                        {/* HOST */}
+
+                        <td>
+                          <span className="proxy-host">
+                            {getProxyHost(proxy) || "—"}
+
+                            {getProxyPort(proxy) && (
+                              <>
+                                :
+                                {getProxyPort(proxy)}
+                              </>
+                            )}
+                          </span>
+                        </td>
+
+                        {/* PRICE */}
+
+                        <td>
+                          <strong>
+                            $
+                            {Number(
+                              proxy.price || 0
+                            ).toFixed(2)}
+                          </strong>
+                        </td>
+
+                        {/* STOCK */}
+
+                        <td>
+                          <span
+                            className={
+                              stock <= 5
+                                ? "proxy-stock-low"
+                                : ""
+                            }
+                          >
+                            {stock}
+                          </span>
+                        </td>
+
+                        {/* STATUS */}
+
+                        <td>
+                          <span
+                            className={`proxy-status ${status
+                              .toLowerCase()
+                              .replace(
+                                /\s+/g,
+                                "-"
+                              )}`}
+                          >
+                            {status}
+                          </span>
+                        </td>
+
+                        {/* ACTIONS */}
+
+                        <td>
+                          <div className="proxy-actions">
+
+                            <button
+                              type="button"
+                              title="Edit proxy"
+                              onClick={() =>
+                                openEditForm(proxy)
+                              }
+                              disabled={
+                                deletingId ===
+                                proxyId
+                              }
+                            >
+                              <FiEdit2 />
+                            </button>
+
+                            <button
+                              type="button"
+                              title="Delete proxy"
+                              onClick={() =>
+                                deleteProxy(proxy)
+                              }
+                              disabled={
+                                deletingId ===
+                                proxyId
+                              }
+                            >
+                              {deletingId ===
+                              proxyId ? (
+                                <FiRefreshCw className="proxy-refresh-spinning" />
+                              ) : (
+                                <FiTrash2 />
+                              )}
+                            </button>
+
+                          </div>
+                        </td>
+
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td
+                      colSpan="10"
+                      className="proxies-empty"
+                    >
+                      <FiSearch />
+
+                      <strong>
+                        No proxies found
+                      </strong>
+
+                      <span>
+                        {proxies.length === 0
+                          ? "No proxy products currently exist in MongoDB."
+                          : "Try changing your search or filters."}
+                      </span>
+
+                      {proxies.length === 0 && (
+                        <button
+                          type="button"
+                          onClick={openAddForm}
+                          disabled={!apiConfigured}
+                        >
+                          <FiPlus />
+                          Add Your First Proxy
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                )}
+
+              </tbody>
+
+            </table>
+
+          </div>
+        </>
+      )}
+
+      {/* =====================================================
           ADD / EDIT MODAL
-      ================================================= */}
+      ===================================================== */}
 
       {showForm && (
-
         <div
           className="proxy-modal-overlay"
           onClick={closeForm}
@@ -1182,8 +1281,8 @@ function Proxies() {
 
           <div
             className="proxy-modal"
-            onClick={(e) =>
-              e.stopPropagation()
+            onClick={(event) =>
+              event.stopPropagation()
             }
           >
 
@@ -1192,7 +1291,6 @@ function Proxies() {
             <div className="proxy-modal-header">
 
               <div>
-
                 <span>
                   PROXY INVENTORY
                 </span>
@@ -1205,21 +1303,39 @@ function Proxies() {
 
                 <p>
                   {editingProxy
-                    ? "Update category, provider and proxy inventory details."
-                    : "Add a new categorized proxy to your marketplace."}
+                    ? "Update the proxy information stored in MongoDB."
+                    : "Add a new proxy product to the marketplace."}
                 </p>
-
               </div>
 
               <button
                 type="button"
                 onClick={closeForm}
                 aria-label="Close"
+                disabled={saving}
               >
                 <FiX />
               </button>
 
             </div>
+
+            {/* FORM ERROR */}
+
+            {formError && (
+              <div className="proxy-api-warning">
+                <FiAlertCircle />
+
+                <div>
+                  <strong>
+                    Check the form
+                  </strong>
+
+                  <span>
+                    {formError}
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* FORM */}
 
@@ -1228,10 +1344,11 @@ function Proxies() {
               onSubmit={handleSubmit}
             >
 
+              {/* NAME + CATEGORY */}
+
               <div className="proxy-form-row">
 
                 <div className="proxy-form-group">
-
                   <label>
                     Proxy Name
                   </label>
@@ -1244,11 +1361,9 @@ function Proxies() {
                     placeholder="e.g. US Rotating Residential"
                     required
                   />
-
                 </div>
 
                 <div className="proxy-form-group">
-
                   <label>
                     Proxy Category
                   </label>
@@ -1257,24 +1372,28 @@ function Proxies() {
                     name="category"
                     value={form.category}
                     onChange={handleChange}
+                    required
                   >
-                    {Object.keys(PROXY_CATEGORIES).map(
-                      (category) => (
-                        <option key={category} value={category}>
-                          {category}
-                        </option>
-                      )
-                    )}
+                    {Object.keys(
+                      PROXY_CATEGORIES
+                    ).map((category) => (
+                      <option
+                        key={category}
+                        value={category}
+                      >
+                        {category}
+                      </option>
+                    ))}
                   </select>
-
                 </div>
 
               </div>
 
+              {/* TYPE + PROVIDER */}
+
               <div className="proxy-form-row">
 
                 <div className="proxy-form-group">
-
                   <label>
                     Proxy Type
                   </label>
@@ -1283,20 +1402,22 @@ function Proxies() {
                     name="type"
                     value={form.type}
                     onChange={handleChange}
+                    required
                   >
-                    {getProxyTypesForCategory(form.category).map(
-                      (type) => (
-                        <option key={type} value={type}>
-                          {type}
-                        </option>
-                      )
-                    )}
+                    {getProxyTypesForCategory(
+                      form.category
+                    ).map((type) => (
+                      <option
+                        key={type}
+                        value={type}
+                      >
+                        {type}
+                      </option>
+                    ))}
                   </select>
-
                 </div>
 
                 <div className="proxy-form-group">
-
                   <label>
                     Provider
                   </label>
@@ -1308,15 +1429,15 @@ function Proxies() {
                     onChange={handleChange}
                     placeholder="e.g. Bright Data"
                   />
-
                 </div>
 
               </div>
 
+              {/* LOCATION + HOST */}
+
               <div className="proxy-form-row">
 
                 <div className="proxy-form-group">
-
                   <label>
                     Location
                   </label>
@@ -1329,11 +1450,9 @@ function Proxies() {
                     placeholder="United States"
                     required
                   />
-
                 </div>
 
                 <div className="proxy-form-group">
-
                   <label>
                     Host / IP
                   </label>
@@ -1346,15 +1465,15 @@ function Proxies() {
                     placeholder="proxy.example.com"
                     required
                   />
-
                 </div>
 
               </div>
 
+              {/* PORT + PRICE */}
+
               <div className="proxy-form-row">
 
                 <div className="proxy-form-group">
-
                   <label>
                     Port
                   </label>
@@ -1367,11 +1486,9 @@ function Proxies() {
                     placeholder="8001"
                     required
                   />
-
                 </div>
 
                 <div className="proxy-form-group">
-
                   <label>
                     Price ($)
                   </label>
@@ -1386,61 +1503,37 @@ function Proxies() {
                     step="0.01"
                     required
                   />
-
                 </div>
 
               </div>
 
-              <div className="proxy-form-row">
+              {/* DESCRIPTION */}
 
-                <div className="proxy-form-group">
+              <div className="proxy-form-group">
 
-                  <label>
-                    Username
-                    <span className="optional-label">
-                      Optional
-                    </span>
-                  </label>
+                <label>
+                  Description
+                  <span className="optional-label">
+                    Optional
+                  </span>
+                </label>
 
-                  <input
-                    type="text"
-                    name="username"
-                    value={form.username}
-                    onChange={handleChange}
-                    placeholder="Proxy username"
-                    autoComplete="off"
-                  />
+                <textarea
+                  name="description"
+                  value={form.description}
+                  onChange={handleChange}
+                  placeholder="Describe the proxy package..."
+                  rows="4"
+                />
 
-                </div>
-
-                <div className="proxy-form-group">
-
-                  <label>
-                    Password
-                    <span className="optional-label">
-                      {editingProxy
-                        ? "Leave blank to keep current"
-                        : "Required"}
-                    </span>
-                  </label>
-
-                  <input
-                    type="password"
-                    name="password"
-                    value={form.password}
-                    onChange={handleChange}
-                    placeholder={
-                      editingProxy
-                        ? "Leave blank to keep current"
-                        : "Proxy password"
-                    }
-                    required={!editingProxy}
-                    autoComplete="new-password"
-                  />
-
-                </div>
+                <small className="proxy-form-help">
+                  If left blank, a description will
+                  automatically be generated.
+                </small>
 
               </div>
+
+              {/* STOCK */}
 
               <div className="proxy-form-group">
 
@@ -1455,13 +1548,38 @@ function Proxies() {
                   onChange={handleChange}
                   placeholder="25"
                   min="0"
+                  step="1"
                   required
                 />
 
                 <small className="proxy-form-help">
-                  Stock automatically determines the
-                  inventory status.
+                  Stock automatically determines
+                  whether the proxy is available to
+                  customers.
                 </small>
+
+              </div>
+
+              {/* CREDENTIAL NOTICE */}
+
+              <div className="proxy-api-warning">
+
+                <FiAlertCircle />
+
+                <div>
+                  <strong>
+                    Proxy credentials
+                  </strong>
+
+                  <span>
+                    Username and password are not
+                    stored in the public product
+                    record. Secure proxy credential
+                    delivery should be connected to
+                    the order/fulfillment system after
+                    payment.
+                  </span>
+                </div>
 
               </div>
 
@@ -1473,6 +1591,7 @@ function Proxies() {
                   type="button"
                   className="cancel-proxy"
                   onClick={closeForm}
+                  disabled={saving}
                 >
                   Cancel
                 </button>
@@ -1480,9 +1599,17 @@ function Proxies() {
                 <button
                   type="submit"
                   className="save-proxy"
+                  disabled={saving}
                 >
 
-                  {editingProxy ? (
+                  {saving ? (
+                    <>
+                      <FiRefreshCw className="proxy-refresh-spinning" />
+                      {editingProxy
+                        ? "Saving..."
+                        : "Adding..."}
+                    </>
+                  ) : editingProxy ? (
                     <>
                       <FiEdit2 />
                       Save Changes
@@ -1503,7 +1630,6 @@ function Proxies() {
           </div>
 
         </div>
-
       )}
 
     </div>
