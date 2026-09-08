@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { FiSearch, FiFilter, FiRefreshCw } from "react-icons/fi";
 
 import ProductCard from "../../components/ProductCard/ProductCard";
